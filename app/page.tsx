@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save } from 'lucide-react';
 import { AnalysisResult, Business } from '@/lib/types';
 import AnalysisCard from '@/components/AnalysisCard';
 import GoogleMapsSearch from '@/components/GoogleMapsSearch';
@@ -9,12 +9,57 @@ import WhatsAppPanel from '@/components/WhatsAppPanel';
 
 type Tab = 'search' | 'input' | 'results' | 'whatsapp';
 
+const STORAGE_KEYS = {
+  businesses: 'bwa_businesses',
+  results: 'bwa_results',
+  sentMessages: 'bwa_sent',
+};
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function Home() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('search');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [loaded, setLoaded] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedBusinesses = loadFromStorage<Business[]>(STORAGE_KEYS.businesses, []);
+    const savedResults = loadFromStorage<AnalysisResult[]>(STORAGE_KEYS.results, []);
+    if (savedBusinesses.length > 0) setBusinesses(savedBusinesses);
+    if (savedResults.length > 0) setResults(savedResults);
+    if (savedBusinesses.length > 0 || savedResults.length > 0) {
+      setActiveTab(savedResults.length > 0 ? 'results' : 'input');
+    }
+    setLoaded(true);
+  }, []);
+
+  // Auto-save to localStorage when data changes
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.businesses, JSON.stringify(businesses));
+      localStorage.setItem(STORAGE_KEYS.results, JSON.stringify(results));
+      if (businesses.length > 0 || results.length > 0) {
+        setLastSaved(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }));
+      }
+    } catch {
+      // localStorage full or unavailable
+    }
+  }, [businesses, results, loaded]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -187,6 +232,12 @@ export default function Home() {
             <div className="hidden sm:block text-right text-xs text-slate-500">
               <div>{businesses.length} negocios cargados</div>
               <div>{results.length} analizados</div>
+              {lastSaved && (
+                <div className="flex items-center justify-end gap-1 text-green-600 mt-1">
+                  <Save className="h-3 w-3" />
+                  Guardado {lastSaved}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -346,7 +397,16 @@ export default function Home() {
                     )}
                   </button>
                   <button
-                    onClick={() => setBusinesses([])}
+                    onClick={() => {
+                      if (confirm('Borrar todos los negocios y resultados?')) {
+                        setBusinesses([]);
+                        setResults([]);
+                        localStorage.removeItem(STORAGE_KEYS.businesses);
+                        localStorage.removeItem(STORAGE_KEYS.results);
+                        localStorage.removeItem(STORAGE_KEYS.sentMessages);
+                        setLastSaved(null);
+                      }
+                    }}
                     className="rounded-lg border border-red-300 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
                   >
                     Limpiar

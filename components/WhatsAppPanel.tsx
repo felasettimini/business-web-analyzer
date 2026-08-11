@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, Phone, X } from 'lucide-react';
 import { AnalysisResult, WhatsAppTemplate } from '@/lib/types';
 import { defaultTemplates, fillTemplate, generateWhatsAppLink } from '@/lib/whatsappTemplates';
+
+const SENT_STORAGE_KEY = 'bwa_sent';
 
 interface Props {
   results: AnalysisResult[];
@@ -15,9 +17,24 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
   const [customMessage, setCustomMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [expandedBusiness, setExpandedBusiness] = useState<string | null>(null);
-  const [sentMessages, setSentMessages] = useState<Set<string>>(new Set());
+  const [sentMessages, setSentMessages] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const saved = localStorage.getItem(SENT_STORAGE_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [filter, setFilter] = useState<'all' | 'with-phone' | 'high-opportunity'>('with-phone');
   const [rubro, setRubro] = useState('');
+
+  // Persist sent messages
+  useEffect(() => {
+    try {
+      localStorage.setItem(SENT_STORAGE_KEY, JSON.stringify([...sentMessages]));
+    } catch { /* ignore */ }
+  }, [sentMessages]);
 
   // Filter businesses that have phone numbers
   const filteredBusinesses = useMemo(() => {
