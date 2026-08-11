@@ -74,8 +74,16 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
     return generateWhatsAppLink(result.business.phone, message);
   };
 
-  const markAsSent = (name: string) => {
-    setSentMessages(prev => new Set(prev).add(name));
+  const toggleSent = (name: string) => {
+    setSentMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
   };
 
   const copyMessage = (result: AnalysisResult) => {
@@ -94,7 +102,6 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
         const link = getWhatsAppLink(result);
         if (link) {
           window.open(link, '_blank');
-          markAsSent(result.business.name);
         }
       }
 
@@ -334,13 +341,25 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
                       <Copy className="h-4 w-4" />
                     </button>
 
+                    {/* Mark sent / unsent */}
+                    <button
+                      onClick={() => toggleSent(result.business.name)}
+                      className={`rounded-lg border p-2 text-sm transition-colors ${
+                        isSent
+                          ? 'border-green-300 bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'border-slate-200 text-slate-400 hover:bg-green-50 hover:text-green-600'
+                      }`}
+                      title={isSent ? 'Desmarcar como enviado' : 'Marcar como enviado'}
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+
                     {/* Send WhatsApp */}
                     {link ? (
                       <a
                         href={link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={() => markAsSent(result.business.name)}
                         className="inline-flex items-center gap-1 rounded-lg bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600"
                       >
                         <ExternalLink className="h-4 w-4" />
