@@ -95,18 +95,46 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Social media domains — these are NOT real websites
+    const socialDomains = [
+      'facebook.com', 'fb.com', 'fb.me',
+      'instagram.com', 'instagr.am',
+      'twitter.com', 'x.com',
+      'tiktok.com',
+      'linkedin.com',
+      'youtube.com', 'youtu.be',
+      'linktr.ee',
+      'bit.ly',
+    ];
+
+    const isSocialMedia = (url: string): boolean => {
+      try {
+        const hostname = new URL(url).hostname.replace('www.', '').replace('m.', '');
+        return socialDomains.some(d => hostname === d || hostname.endsWith('.' + d));
+      } catch {
+        return false;
+      }
+    };
+
     // Map to our Business format
-    const businesses = places.map((place) => ({
-      name: place.displayName?.text || 'Unknown',
-      website: place.websiteUri || undefined,
-      phone: place.internationalPhoneNumber || place.nationalPhoneNumber || undefined,
-      address: place.formattedAddress || undefined,
-      rating: place.rating || undefined,
-      reviews: place.userRatingCount || undefined,
-      mapUrl: place.googleMapsUri || undefined,
-      placeId: place.id,
-      hasWebsite: !!place.websiteUri,
-    }));
+    const businesses = places.map((place) => {
+      const rawUrl = place.websiteUri || undefined;
+      const isSocial = rawUrl ? isSocialMedia(rawUrl) : false;
+
+      return {
+        name: place.displayName?.text || 'Unknown',
+        website: isSocial ? undefined : rawUrl,      // Only set if it's a real website
+        phone: place.internationalPhoneNumber || place.nationalPhoneNumber || undefined,
+        address: place.formattedAddress || undefined,
+        rating: place.rating || undefined,
+        reviews: place.userRatingCount || undefined,
+        mapUrl: place.googleMapsUri || undefined,
+        placeId: place.id,
+        hasWebsite: !!rawUrl && !isSocial,
+        socialMedia: isSocial ? rawUrl : undefined,   // Store social URL separately
+        onlySocial: isSocial,
+      };
+    });
 
     return NextResponse.json({
       success: true,

@@ -25,7 +25,7 @@ export default function WhatsAppPanel({ results }: Props) {
     if (filter === 'with-phone') {
       filtered = filtered.filter(r => r.business.phone);
     } else if (filter === 'high-opportunity') {
-      filtered = filtered.filter(r => r.business.phone && (r.analysis?.opportunity === 'high' || !r.business.hasWebsite));
+      filtered = filtered.filter(r => r.business.phone && (r.analysis?.opportunity === 'high' || !r.business.hasWebsite || r.business.onlySocial));
     }
 
     return filtered;
@@ -34,7 +34,9 @@ export default function WhatsAppPanel({ results }: Props) {
   const getMessageForBusiness = (result: AnalysisResult): string => {
     const template = isEditing ? customMessage : selectedTemplate.message;
 
-    const problemaPrincipal = !result.business.hasWebsite
+    const problemaPrincipal = result.business.onlySocial
+      ? 'solo tiene redes sociales pero no una pagina web propia'
+      : !result.business.hasWebsite
       ? 'no tiene pagina web'
       : result.analysis?.opportunity === 'high'
         ? 'la pagina web podria mejorar mucho'
@@ -270,7 +272,7 @@ export default function WhatsAppPanel({ results }: Props) {
                           <Check className="h-3 w-3" /> Enviado
                         </span>
                       )}
-                      {result.analysis?.opportunity === 'high' && !isSent && (
+                      {(result.analysis?.opportunity === 'high' || !result.business.hasWebsite || result.business.onlySocial) && !isSent && (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
                           HIGH
                         </span>
@@ -286,7 +288,10 @@ export default function WhatsAppPanel({ results }: Props) {
                       {result.analysis && (
                         <span>Score: {result.analysis.overall}/100</span>
                       )}
-                      {!result.business.hasWebsite && (
+                      {result.business.onlySocial && (
+                        <span className="text-purple-600 font-medium">Solo redes</span>
+                      )}
+                      {!result.business.hasWebsite && !result.business.onlySocial && (
                         <span className="text-orange-600 font-medium">Sin web</span>
                       )}
                     </div>

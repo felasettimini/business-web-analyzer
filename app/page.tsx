@@ -74,10 +74,12 @@ export default function Home() {
       const business = businesses[i];
       setProgress({ current: i + 1, total: businesses.length });
 
-      if (!business.website) {
+      if (!business.website || business.onlySocial) {
         newResults.push({
           business,
-          error: 'No website found — Prospect for NEW site',
+          error: business.onlySocial
+            ? `Solo tiene redes sociales — Prospect para web NUEVA`
+            : 'No tiene web — Prospect para web NUEVA',
         });
         setResults([...newResults]);
         continue;
@@ -248,18 +250,24 @@ export default function Home() {
               <div className="rounded-lg border border-slate-200 bg-white p-6">
                 <h3 className="mb-4 text-lg font-semibold">Negocios cargados ({businesses.length})</h3>
 
-                <div className="mb-4 grid grid-cols-3 gap-4 text-sm">
+                <div className="mb-4 grid grid-cols-4 gap-3 text-sm">
                   <div className="rounded-lg bg-green-50 p-3 text-center">
                     <div className="text-2xl font-bold text-green-600">
                       {businesses.filter(b => b.hasWebsite).length}
                     </div>
                     <div className="text-xs text-green-700">Con web</div>
                   </div>
+                  <div className="rounded-lg bg-purple-50 p-3 text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {businesses.filter(b => b.onlySocial).length}
+                    </div>
+                    <div className="text-xs text-purple-700">Solo redes</div>
+                  </div>
                   <div className="rounded-lg bg-orange-50 p-3 text-center">
                     <div className="text-2xl font-bold text-orange-600">
-                      {businesses.filter(b => !b.hasWebsite).length}
+                      {businesses.filter(b => !b.hasWebsite && !b.onlySocial).length}
                     </div>
-                    <div className="text-xs text-orange-700">Sin web</div>
+                    <div className="text-xs text-orange-700">Sin nada</div>
                   </div>
                   <div className="rounded-lg bg-blue-50 p-3 text-center">
                     <div className="text-2xl font-bold text-blue-600">
@@ -284,9 +292,13 @@ export default function Home() {
                         <tr key={i} className="border-b hover:bg-slate-50">
                           <td className="px-3 py-2 font-medium">{b.name}</td>
                           <td className="px-3 py-2">
-                            {b.website ? (
+                            {b.hasWebsite && b.website ? (
                               <a href={b.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
                                 {new URL(b.website.startsWith('http') ? b.website : `https://${b.website}`).hostname}
+                              </a>
+                            ) : b.onlySocial ? (
+                              <a href={b.socialMedia} target="_blank" rel="noopener noreferrer" className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">
+                                Solo redes
                               </a>
                             ) : (
                               <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700">Sin web</span>
@@ -382,12 +394,18 @@ export default function Home() {
             ) : (
               <div className="space-y-4">
                 {/* Summary Cards */}
-                <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
+                <div className="grid gap-3 grid-cols-2 md:grid-cols-6">
                   <div className="rounded-lg border border-red-200 bg-red-50 p-3">
                     <div className="text-xl font-bold text-red-600">
-                      {results.filter(r => !r.business.hasWebsite).length}
+                      {results.filter(r => !r.business.hasWebsite && !r.business.onlySocial).length}
                     </div>
-                    <div className="text-xs text-red-700">Sin web (contactar!)</div>
+                    <div className="text-xs text-red-700">Sin web</div>
+                  </div>
+                  <div className="rounded-lg border border-purple-200 bg-purple-50 p-3">
+                    <div className="text-xl font-bold text-purple-600">
+                      {results.filter(r => r.business.onlySocial).length}
+                    </div>
+                    <div className="text-xs text-purple-700">Solo redes</div>
                   </div>
                   <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
                     <div className="text-xl font-bold text-orange-600">

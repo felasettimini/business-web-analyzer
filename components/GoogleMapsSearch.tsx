@@ -194,8 +194,11 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
                 <span className="text-green-600 font-medium">
                   {searchResults.filter(b => b.hasWebsite).length} con web
                 </span>
+                <span className="text-purple-600 font-medium">
+                  {searchResults.filter(b => b.onlySocial).length} solo redes
+                </span>
                 <span className="text-orange-600 font-medium">
-                  {searchResults.filter(b => !b.hasWebsite).length} sin web
+                  {searchResults.filter(b => !b.hasWebsite && !b.onlySocial).length} sin nada
                 </span>
                 <span>
                   {searchResults.filter(b => b.phone).length} con telefono
@@ -245,6 +248,15 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
                           >
                             <Globe className="h-3 w-3" />
                             Ver
+                          </a>
+                        ) : business.onlySocial ? (
+                          <a
+                            href={business.socialMedia}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700"
+                          >
+                            Solo redes
                           </a>
                         ) : (
                           <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-700">

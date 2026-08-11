@@ -8,6 +8,8 @@ export interface Business {
   mapUrl?: string;
   placeId?: string;
   hasWebsite: boolean;
+  socialMedia?: string;   // Facebook/Instagram/etc URL (not a real website)
+  onlySocial?: boolean;   // true if the only "web" is a social media profile
   analyzed?: boolean;
 }
 
