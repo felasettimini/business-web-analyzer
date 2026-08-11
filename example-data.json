@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Centro Dental García",
+    "website": "www.centrodentalgarcia.com",
+    "phone": "+54 341 123-4567",
+    "address": "Calle Principal 100, Rosario",
+    "rating": 4.5,
+    "reviews": 28
+  },
+  {
+    "name": "Peluquería Boutique",
+    "website": "peluqueriaboutique.wix.com",
+    "phone": "+54 341 234-5678",
+    "address": "Av. Rivadavia 200, Rosario",
+    "rating": 4.2,
+    "reviews": 15
+  },
+  {
+    "name": "Estética Moderna",
+    "website": null,
+    "phone": "+54 341 345-6789",
+    "address": "San Juan 150, Rosario",
+    "rating": 4.8,
+    "reviews": 42
+  },
+  {
+    "name": "Academia de Inglés",
+    "website": "www.englishacademy.com.ar",
+    "phone": "+54 341 456-7890",
+    "address": "Entre Ríos 300, Rosario",
+    "rating": 4.0,
+    "reviews": 20
+  },
+  {
+    "name": "Barbería Don Carlos",
+    "website": "carlosbarberia.blogspot.com",
+    "phone": "+54 341 567-8901",
+    "address": "La Calle 400, Rosario",
+    "rating": 4.9,
+    "reviews": 35
+  }
+]
