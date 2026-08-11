@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, Phone } from 'lucide-react';
+import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, Phone, X } from 'lucide-react';
 import { AnalysisResult, WhatsAppTemplate } from '@/lib/types';
 import { defaultTemplates, fillTemplate, generateWhatsAppLink } from '@/lib/whatsappTemplates';
 
 interface Props {
   results: AnalysisResult[];
+  onRemove?: (name: string) => void;
 }
 
-export default function WhatsAppPanel({ results }: Props) {
+export default function WhatsAppPanel({ results, onRemove }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate>(defaultTemplates[0]);
   const [customMessage, setCustomMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -332,6 +333,17 @@ export default function WhatsAppPanel({ results }: Props) {
                       <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-400">
                         Sin telefono
                       </span>
+                    )}
+
+                    {/* Remove */}
+                    {onRemove && (
+                      <button
+                        onClick={() => onRemove(result.business.name)}
+                        className="rounded-lg border border-slate-200 p-2 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                        title="Eliminar"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
                 </div>

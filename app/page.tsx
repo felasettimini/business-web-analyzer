@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle } from 'lucide-react';
+import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X } from 'lucide-react';
 import { AnalysisResult, Business } from '@/lib/types';
 import AnalysisCard from '@/components/AnalysisCard';
 import GoogleMapsSearch from '@/components/GoogleMapsSearch';
@@ -139,6 +139,11 @@ export default function Home() {
     a.href = url;
     a.download = `business-analysis-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  const removeBusiness = (name: string) => {
+    setBusinesses(prev => prev.filter(b => b.name !== name));
+    setResults(prev => prev.filter(r => r.business.name !== name));
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
@@ -285,11 +290,12 @@ export default function Home() {
                         <th className="border-b px-3 py-2 text-left font-semibold">Website</th>
                         <th className="border-b px-3 py-2 text-left font-semibold">Telefono</th>
                         <th className="border-b px-3 py-2 text-left font-semibold">Rating</th>
+                        <th className="border-b px-3 py-2 w-10"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {businesses.map((b, i) => (
-                        <tr key={i} className="border-b hover:bg-slate-50">
+                        <tr key={i} className="border-b hover:bg-slate-50 group">
                           <td className="px-3 py-2 font-medium">{b.name}</td>
                           <td className="px-3 py-2">
                             {b.hasWebsite && b.website ? (
@@ -306,6 +312,15 @@ export default function Home() {
                           </td>
                           <td className="px-3 py-2 text-xs text-slate-600">{b.phone || '-'}</td>
                           <td className="px-3 py-2 text-xs">{b.rating ? `${b.rating} (${b.reviews || 0})` : '-'}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => removeBusiness(b.name)}
+                              className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                              title="Eliminar"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -445,7 +460,7 @@ export default function Home() {
                     return scoreA - scoreB;
                   })
                   .map((result, index) => (
-                    <AnalysisCard key={index} result={result} />
+                    <AnalysisCard key={index} result={result} onRemove={removeBusiness} />
                   ))}
               </div>
             )}
@@ -467,7 +482,7 @@ export default function Home() {
                 </button>
               </div>
             ) : (
-              <WhatsAppPanel results={results} />
+              <WhatsAppPanel results={results} onRemove={removeBusiness} />
             )}
           </div>
         )}

@@ -1,10 +1,11 @@
 'use client';
 
 import { AnalysisResult } from '@/lib/types';
-import { AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
+import { AlertCircle, CheckCircle, TrendingUp, X } from 'lucide-react';
 
 interface Props {
   result: AnalysisResult;
+  onRemove?: (name: string) => void;
 }
 
 const scoreToColor = (score: number): string => {
@@ -19,7 +20,7 @@ const opportunityColor = (opp: 'high' | 'medium' | 'low'): string => {
   return 'border-green-300 bg-green-50';
 };
 
-export default function AnalysisCard({ result }: Props) {
+export default function AnalysisCard({ result, onRemove }: Props) {
   const { business, analysis, error } = result;
 
   if (error) {
@@ -30,10 +31,10 @@ export default function AnalysisCard({ result }: Props) {
     const subColor = isSocialOnly ? 'text-purple-700' : 'text-red-700';
 
     return (
-      <div className={`rounded-lg border ${borderColor} p-4`}>
+      <div className={`rounded-lg border ${borderColor} p-4 group`}>
         <div className="flex items-start gap-3">
           <AlertCircle className={`h-5 w-5 ${iconColor} flex-shrink-0 mt-0.5`} />
-          <div>
+          <div className="flex-1">
             <div className="flex items-center gap-2">
               <h3 className={`font-semibold ${textColor}`}>{business.name}</h3>
               {isSocialOnly && (
@@ -53,6 +54,15 @@ export default function AnalysisCard({ result }: Props) {
               <p className="mt-1 text-xs text-slate-600">Tel: {business.phone}</p>
             )}
           </div>
+          {onRemove && (
+            <button
+              onClick={() => onRemove(business.name)}
+              className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:bg-red-100 hover:text-red-500 group-hover:opacity-100 flex-shrink-0"
+              title="Eliminar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -61,7 +71,7 @@ export default function AnalysisCard({ result }: Props) {
   if (!analysis) return null;
 
   return (
-    <div className={`rounded-lg border-2 ${opportunityColor(analysis.opportunity)} p-6`}>
+    <div className={`rounded-lg border-2 ${opportunityColor(analysis.opportunity)} p-6 group`}>
       {/* Header */}
       <div className="mb-4 flex items-start justify-between">
         <div>
@@ -77,10 +87,11 @@ export default function AnalysisCard({ result }: Props) {
             </a>
           )}
         </div>
-        <div className="text-right">
-          <div className={`text-3xl font-bold ${scoreToColor(analysis.overall)}`}>
-            {analysis.overall}
-          </div>
+        <div className="flex items-start gap-2">
+          <div className="text-right">
+            <div className={`text-3xl font-bold ${scoreToColor(analysis.overall)}`}>
+              {analysis.overall}
+            </div>
           <div className="text-xs font-semibold text-slate-600">Overall Score</div>
           <div className="mt-1 inline-block rounded px-2 py-1 text-xs font-bold uppercase">
             <span
@@ -95,6 +106,16 @@ export default function AnalysisCard({ result }: Props) {
               {analysis.opportunity} opportunity
             </span>
           </div>
+          </div>
+          {onRemove && (
+            <button
+              onClick={() => onRemove(business.name)}
+              className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:bg-red-100 hover:text-red-500 group-hover:opacity-100 flex-shrink-0"
+              title="Eliminar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
