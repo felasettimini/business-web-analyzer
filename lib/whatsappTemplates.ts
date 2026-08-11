@@ -8,7 +8,7 @@ export const defaultTemplates: WhatsAppTemplate[] = [
 
 Vi que {nombre_negocio} tiene mucha actividad y queria comentarte algo: hoy en dia el 70% de la gente busca negocios en Google antes de ir. Una pagina web profesional puede ayudarte a captar esos clientes.
 
-Te dejo mi portfolio: https://settimini.net
+Te dejo mi portfolio: https://felipesettimini.com
 
 Si te interesa, te hago una consulta sin costo para ver como mejorar tu presencia online. Sin compromiso!
 
@@ -21,7 +21,7 @@ Saludos!`,
 
 Vi {nombre_negocio} y note que {problema_principal}. Trabajo con negocios de la zona creando sitios web profesionales que captan clientes desde Google.
 
-Portfolio: https://settimini.net
+Portfolio: https://felipesettimini.com
 
 Te interesaria una consulta gratis para ver opciones? 🚀`,
   },
@@ -38,7 +38,7 @@ Puedo armar un sitio profesional a medida con:
 ✅ Boton de WhatsApp directo
 ✅ Fotos y catalogo de productos
 
-Portfolio: https://settimini.net
+Portfolio: https://felipesettimini.com
 
 Te gustaria charlar 15 mins sin compromiso? 😊`,
   },
@@ -49,7 +49,7 @@ Te gustaria charlar 15 mins sin compromiso? 😊`,
 
 Vi la pagina de {nombre_negocio} y note que podria tener un upgrade importante. Las webs modernas cargan mas rapido, se ven mejor en celular y posicionan mejor en Google.
 
-Trabajo con negocios de la zona modernizando su presencia online. Te dejo mi portfolio: https://settimini.net
+Trabajo con negocios de la zona modernizando su presencia online. Te dejo mi portfolio: https://felipesettimini.com
 
 Te interesaria que te muestre como quedaria tu sitio actualizado? Sin costo la consulta! 🚀`,
   },
@@ -63,7 +63,7 @@ Queria ver si tuviste chance de pensarlo. Estoy con algunos proyectos en la zona
 Cualquier duda estoy a disposicion!
 
 Felipe
-https://settimini.net`,
+https://felipesettimini.com`,
   },
 ];
 
