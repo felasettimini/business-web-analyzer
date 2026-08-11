@@ -6,6 +6,7 @@ export interface Business {
   rating?: number;
   reviews?: number;
   mapUrl?: string;
+  placeId?: string;
   hasWebsite: boolean;
   analyzed?: boolean;
 }
@@ -14,13 +15,13 @@ export interface WebsiteAnalysis {
   url: string;
   businessName: string;
   scores: {
-    mobile: number; // 0-100
-    speed: number; // 0-100
-    design: number; // 0-100
-    seo: number; // 0-100
-    contactibility: number; // 0-100
+    mobile: number;
+    speed: number;
+    design: number;
+    seo: number;
+    contactibility: number;
   };
-  overall: number; // 0-100
+  overall: number;
   issues: string[];
   recommendations: string[];
   hasMobileMenu: boolean;
@@ -28,7 +29,7 @@ export interface WebsiteAnalysis {
   hasWhatsapp: boolean;
   hasMapEmbedded: boolean;
   isResponsive: boolean;
-  loadTime: number; // ms
+  loadTime: number;
   designAge: 'modern' | 'outdated' | 'very_outdated';
   opportunity: 'high' | 'medium' | 'low';
 }
@@ -37,4 +38,18 @@ export interface AnalysisResult {
   business: Business;
   analysis?: WebsiteAnalysis;
   error?: string;
+}
+
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  message: string;
+}
+
+export interface WhatsAppMessage {
+  business: Business;
+  phone: string;
+  message: string;
+  waLink: string;
+  sent: boolean;
 }
