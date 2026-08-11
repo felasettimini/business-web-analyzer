@@ -22,7 +22,7 @@ interface MapsBusiness {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { businesses, query } = await request.json();
+    const { businesses } = await request.json();
 
     if (!businesses || !Array.isArray(businesses)) {
       return NextResponse.json(

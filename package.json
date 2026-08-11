@@ -20,7 +20,7 @@
     "lighthouse": "^12.0.0",
     "csv-writer": "^1.6.0",
     "zustand": "^4.4.0",
-    "lucide-react": "^latest"
+    "lucide-react": "^0.408.0"
   },
   "devDependencies": {
     "@types/node": "^20",

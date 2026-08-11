@@ -3,15 +3,12 @@
 import { useState } from 'react';
 import { Upload, Search, BarChart3, Download, Loader } from 'lucide-react';
 import { AnalysisResult, Business } from '@/lib/types';
-import ResultsTable from '@/components/ResultsTable';
 import AnalysisCard from '@/components/AnalysisCard';
 
 export default function Home() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [results, setResults] = useState<AnalysisResult[]>([]);
-  const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'input' | 'results'>('input');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
