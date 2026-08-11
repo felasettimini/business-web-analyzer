@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, Phone, X } from 'lucide-react';
+import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, Phone, X, PhoneOff } from 'lucide-react';
 import { AnalysisResult, WhatsAppTemplate } from '@/lib/types';
 import { defaultTemplates, fillTemplate, generateWhatsAppLink } from '@/lib/whatsappTemplates';
 
 const SENT_STORAGE_KEY = 'bwa_sent';
+const NO_WA_STORAGE_KEY = 'bwa_no_whatsapp';
 
 interface Props {
   results: AnalysisResult[];
@@ -26,15 +27,25 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
       return new Set();
     }
   });
+  const [noWhatsApp, setNoWhatsApp] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const saved = localStorage.getItem(NO_WA_STORAGE_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [filter, setFilter] = useState<'all' | 'with-phone' | 'high-opportunity'>('with-phone');
   const [rubro, setRubro] = useState('');
 
-  // Persist sent messages
+  // Persist sent messages and no-whatsapp
   useEffect(() => {
     try {
       localStorage.setItem(SENT_STORAGE_KEY, JSON.stringify([...sentMessages]));
+      localStorage.setItem(NO_WA_STORAGE_KEY, JSON.stringify([...noWhatsApp]));
     } catch { /* ignore */ }
-  }, [sentMessages]);
+  }, [sentMessages, noWhatsApp]);
 
   // Filter businesses that have phone numbers
   const filteredBusinesses = useMemo(() => {
@@ -86,6 +97,20 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
     });
   };
 
+  const toggleNoWhatsApp = (name: string) => {
+    setNoWhatsApp(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+        // Si lo marco como "no tiene WA", saco el estado de enviado
+        setSentMessages(p => { const n = new Set(p); n.delete(name); return n; });
+      }
+      return next;
+    });
+  };
+
   const copyMessage = (result: AnalysisResult) => {
     const message = getMessageForBusiness(result);
     navigator.clipboard.writeText(message);
@@ -114,11 +139,13 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
 
   const businessesWithPhone = filteredBusinesses.filter(r => r.business.phone).length;
   const alreadySent = filteredBusinesses.filter(r => sentMessages.has(r.business.name)).length;
+  const noWaCount = filteredBusinesses.filter(r => noWhatsApp.has(r.business.name)).length;
+  const pendingCount = businessesWithPhone - alreadySent - noWaCount;
 
   return (
     <div className="space-y-6">
       {/* Header Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <div className="flex items-center gap-2">
             <Phone className="h-5 w-5 text-green-600" />
@@ -137,11 +164,20 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
             </div>
           </div>
         </div>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <div className="flex items-center gap-2">
+            <PhoneOff className="h-5 w-5 text-red-500" />
+            <div>
+              <div className="text-2xl font-bold text-red-500">{noWaCount}</div>
+              <div className="text-xs text-red-600">Sin WhatsApp</div>
+            </div>
+          </div>
+        </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-slate-600" />
             <div>
-              <div className="text-2xl font-bold text-slate-600">{businessesWithPhone - alreadySent}</div>
+              <div className="text-2xl font-bold text-slate-600">{pendingCount}</div>
               <div className="text-xs text-slate-700">Pendientes</div>
             </div>
           </div>
@@ -276,13 +312,16 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
           filteredBusinesses.map((result, index) => {
             const link = getWhatsAppLink(result);
             const isSent = sentMessages.has(result.business.name);
+            const isNoWa = noWhatsApp.has(result.business.name);
             const isExpanded = expandedBusiness === result.business.name;
 
             return (
               <div
                 key={index}
                 className={`rounded-lg border p-4 transition-all ${
-                  isSent
+                  isNoWa
+                    ? 'border-red-200 bg-red-50/30 opacity-60'
+                    : isSent
                     ? 'border-green-200 bg-green-50/50'
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
@@ -292,12 +331,17 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold text-slate-900 truncate">{result.business.name}</h4>
-                      {isSent && (
+                      {isNoWa && (
+                        <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
+                          <PhoneOff className="h-3 w-3" /> No tiene WA
+                        </span>
+                      )}
+                      {isSent && !isNoWa && (
                         <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
                           <Check className="h-3 w-3" /> Enviado
                         </span>
                       )}
-                      {(result.analysis?.opportunity === 'high' || !result.business.hasWebsite || result.business.onlySocial) && !isSent && (
+                      {(result.analysis?.opportunity === 'high' || !result.business.hasWebsite || result.business.onlySocial) && !isSent && !isNoWa && (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
                           HIGH
                         </span>
@@ -352,6 +396,19 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
                       title={isSent ? 'Desmarcar como enviado' : 'Marcar como enviado'}
                     >
                       <Check className="h-4 w-4" />
+                    </button>
+
+                    {/* Mark no WhatsApp */}
+                    <button
+                      onClick={() => toggleNoWhatsApp(result.business.name)}
+                      className={`rounded-lg border p-2 text-sm transition-colors ${
+                        isNoWa
+                          ? 'border-red-300 bg-red-100 text-red-600 hover:bg-red-200'
+                          : 'border-slate-200 text-slate-400 hover:bg-red-50 hover:text-red-500'
+                      }`}
+                      title={isNoWa ? 'Desmarcar "no tiene WA"' : 'Marcar como "no tiene WA"'}
+                    >
+                      <PhoneOff className="h-4 w-4" />
                     </button>
 
                     {/* Send WhatsApp */}
