@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save } from 'lucide-react';
+import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save, StickyNote } from 'lucide-react';
 import { AnalysisResult, Business } from '@/lib/types';
+import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
 import AnalysisCard from '@/components/AnalysisCard';
 import GoogleMapsSearch from '@/components/GoogleMapsSearch';
 import WhatsAppPanel from '@/components/WhatsAppPanel';
@@ -191,6 +192,19 @@ export default function Home() {
     setResults(prev => prev.filter(r => r.business.name !== name));
   };
 
+  const updateBusiness = (name: string, updates: Partial<Business>) => {
+    setBusinesses(prev => prev.map(b => (b.name === name ? { ...b, ...updates } : b)));
+    setResults(prev =>
+      prev.map(r => (r.business.name === name ? { ...r, business: { ...r.business, ...updates } } : r))
+    );
+  };
+
+  const editNotes = (business: Business) => {
+    const note = prompt(`Nota para ${business.name}:`, business.notes || '');
+    if (note === null) return;
+    updateBusiness(business.name, { notes: note });
+  };
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     {
       id: 'search',
@@ -341,6 +355,8 @@ export default function Home() {
                         <th className="border-b px-3 py-2 text-left font-semibold">Website</th>
                         <th className="border-b px-3 py-2 text-left font-semibold">Telefono</th>
                         <th className="border-b px-3 py-2 text-left font-semibold">Rating</th>
+                        <th className="border-b px-3 py-2 text-left font-semibold">Estado</th>
+                        <th className="border-b px-3 py-2 text-left font-semibold">Notas</th>
                         <th className="border-b px-3 py-2 w-10"></th>
                       </tr>
                     </thead>
@@ -363,6 +379,27 @@ export default function Home() {
                           </td>
                           <td className="px-3 py-2 text-xs text-slate-600">{b.phone || '-'}</td>
                           <td className="px-3 py-2 text-xs">{b.rating ? `${b.rating} (${b.reviews || 0})` : '-'}</td>
+                          <td className="px-3 py-2">
+                            <select
+                              value={b.status || 'nuevo'}
+                              onChange={(e) => updateBusiness(b.name, { status: e.target.value as Business['status'] })}
+                              className={`rounded-full border-0 px-2 py-1 text-xs font-medium ${getStatusMeta(b.status).color}`}
+                            >
+                              {PIPELINE_STATUSES.map((s) => (
+                                <option key={s.value} value={s.value}>{s.label}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              onClick={() => editNotes(b)}
+                              className={`flex items-center gap-1 rounded px-1.5 py-1 text-xs ${b.notes ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'}`}
+                              title={b.notes || 'Agregar nota'}
+                            >
+                              <StickyNote className="h-3 w-3 flex-shrink-0" />
+                              <span className="max-w-[120px] truncate">{b.notes || 'Agregar nota'}</span>
+                            </button>
+                          </td>
                           <td className="px-3 py-2 text-center">
                             <button
                               onClick={() => removeBusiness(b.name)}
@@ -508,6 +545,21 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Pipeline / Funnel summary */}
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold text-slate-700">Pipeline de venta</h3>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                    {PIPELINE_STATUSES.map((s) => (
+                      <div key={s.value} className={`rounded-lg border border-slate-200 p-3 ${s.color}`}>
+                        <div className="text-xl font-bold">
+                          {results.filter(r => (r.business.status || 'nuevo') === s.value).length}
+                        </div>
+                        <div className="text-xs">{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Results — No website first, then by opportunity */}
                 {results
                   .sort((a, b) => {
@@ -520,7 +572,7 @@ export default function Home() {
                     return scoreA - scoreB;
                   })
                   .map((result, index) => (
-                    <AnalysisCard key={index} result={result} onRemove={removeBusiness} />
+                    <AnalysisCard key={index} result={result} onRemove={removeBusiness} onUpdateBusiness={updateBusiness} />
                   ))}
               </div>
             )}
@@ -542,7 +594,7 @@ export default function Home() {
                 </button>
               </div>
             ) : (
-              <WhatsAppPanel results={results} onRemove={removeBusiness} />
+              <WhatsAppPanel results={results} onRemove={removeBusiness} onUpdateBusiness={updateBusiness} />
             )}
           </div>
         )}

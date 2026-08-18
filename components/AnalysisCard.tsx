@@ -1,11 +1,13 @@
 'use client';
 
-import { AnalysisResult } from '@/lib/types';
-import { AlertCircle, CheckCircle, TrendingUp, X } from 'lucide-react';
+import { AnalysisResult, Business } from '@/lib/types';
+import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
+import { AlertCircle, CheckCircle, TrendingUp, X, StickyNote } from 'lucide-react';
 
 interface Props {
   result: AnalysisResult;
   onRemove?: (name: string) => void;
+  onUpdateBusiness?: (name: string, updates: Partial<Business>) => void;
 }
 
 const scoreToColor = (score: number): string => {
@@ -20,8 +22,37 @@ const opportunityColor = (opp: 'high' | 'medium' | 'low'): string => {
   return 'border-green-300 bg-green-50';
 };
 
-export default function AnalysisCard({ result, onRemove }: Props) {
+export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Props) {
   const { business, analysis, error } = result;
+
+  const editNotes = () => {
+    if (!onUpdateBusiness) return;
+    const note = prompt(`Nota para ${business.name}:`, business.notes || '');
+    if (note === null) return;
+    onUpdateBusiness(business.name, { notes: note });
+  };
+
+  const statusControls = onUpdateBusiness && (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <select
+        value={business.status || 'nuevo'}
+        onChange={(e) => onUpdateBusiness(business.name, { status: e.target.value as Business['status'] })}
+        className={`rounded-full border-0 px-2 py-1 text-xs font-medium ${getStatusMeta(business.status).color}`}
+      >
+        {PIPELINE_STATUSES.map((s) => (
+          <option key={s.value} value={s.value}>{s.label}</option>
+        ))}
+      </select>
+      <button
+        onClick={editNotes}
+        className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${business.notes ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'}`}
+        title={business.notes || 'Agregar nota'}
+      >
+        <StickyNote className="h-3 w-3 flex-shrink-0" />
+        <span className="max-w-[200px] truncate">{business.notes || 'Agregar nota'}</span>
+      </button>
+    </div>
+  );
 
   if (error) {
     const isSocialOnly = business.onlySocial;
@@ -53,6 +84,7 @@ export default function AnalysisCard({ result, onRemove }: Props) {
             {business.phone && (
               <p className="mt-1 text-xs text-slate-600">Tel: {business.phone}</p>
             )}
+            {statusControls}
           </div>
           {onRemove && (
             <button
@@ -118,6 +150,8 @@ export default function AnalysisCard({ result, onRemove }: Props) {
           )}
         </div>
       </div>
+
+      {statusControls}
 
       {/* Scores Grid */}
       <div className="mb-4 grid grid-cols-5 gap-2 md:gap-3">

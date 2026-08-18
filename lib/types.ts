@@ -1,3 +1,5 @@
+export type PipelineStatus = 'nuevo' | 'contactado' | 'interesado' | 'cliente' | 'descartado';
+
 export interface Business {
   name: string;
   website?: string;
@@ -11,6 +13,8 @@ export interface Business {
   socialMedia?: string;   // Facebook/Instagram/etc URL (not a real website)
   onlySocial?: boolean;   // true if the only "web" is a social media profile
   analyzed?: boolean;
+  status?: PipelineStatus; // pipeline de venta, default 'nuevo' si no esta seteado
+  notes?: string;          // notas libres del vendedor
 }
 
 export interface WebsiteAnalysis {

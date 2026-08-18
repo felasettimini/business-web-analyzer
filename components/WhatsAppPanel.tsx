@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, Phone, X, PhoneOff } from 'lucide-react';
-import { AnalysisResult, WhatsAppTemplate } from '@/lib/types';
+import { AnalysisResult, WhatsAppTemplate, Business, PipelineStatus } from '@/lib/types';
 import { defaultTemplates, fillTemplate, generateWhatsAppLink } from '@/lib/whatsappTemplates';
+import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
 
 const SENT_STORAGE_KEY = 'bwa_sent';
 const NO_WA_STORAGE_KEY = 'bwa_no_whatsapp';
@@ -11,9 +12,10 @@ const NO_WA_STORAGE_KEY = 'bwa_no_whatsapp';
 interface Props {
   results: AnalysisResult[];
   onRemove?: (name: string) => void;
+  onUpdateBusiness?: (name: string, updates: Partial<Business>) => void;
 }
 
-export default function WhatsAppPanel({ results, onRemove }: Props) {
+export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate>(defaultTemplates[0]);
   const [customMessage, setCustomMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -37,6 +39,7 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
     }
   });
   const [filter, setFilter] = useState<'all' | 'with-phone' | 'high-opportunity'>('with-phone');
+  const [statusFilter, setStatusFilter] = useState<PipelineStatus | 'all'>('all');
   const [rubro, setRubro] = useState('');
 
   // Persist sent messages and no-whatsapp
@@ -57,8 +60,12 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
       filtered = filtered.filter(r => r.business.phone && (r.analysis?.opportunity === 'high' || !r.business.hasWebsite || r.business.onlySocial));
     }
 
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(r => (r.business.status || 'nuevo') === statusFilter);
+    }
+
     return filtered;
-  }, [results, filter]);
+  }, [results, filter, statusFilter]);
 
   const getMessageForBusiness = (result: AnalysisResult): string => {
     const template = isEditing ? customMessage : selectedTemplate.message;
@@ -85,13 +92,17 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
     return generateWhatsAppLink(result.business.phone, message);
   };
 
-  const toggleSent = (name: string) => {
+  const toggleSent = (name: string, currentStatus?: PipelineStatus) => {
     setSentMessages(prev => {
       const next = new Set(prev);
       if (next.has(name)) {
         next.delete(name);
       } else {
         next.add(name);
+        // Si estaba "nuevo" (o sin estado), lo paso a "contactado" automaticamente
+        if (onUpdateBusiness && (!currentStatus || currentStatus === 'nuevo')) {
+          onUpdateBusiness(name, { status: 'contactado' });
+        }
       }
       return next;
     });
@@ -267,7 +278,7 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
         </div>
 
         {/* Filter */}
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap gap-2">
           <label className="text-sm font-medium text-slate-700 mr-2 self-center">Filtrar:</label>
           {[
             { value: 'with-phone' as const, label: 'Con telefono' },
@@ -284,6 +295,30 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
               }`}
             >
               {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Status Filter */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          <label className="text-sm font-medium text-slate-700 mr-2 self-center">Estado:</label>
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`rounded-full px-3 py-1 text-sm transition-colors ${
+              statusFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Todos
+          </button>
+          {PIPELINE_STATUSES.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setStatusFilter(s.value)}
+              className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                statusFilter === s.value ? 'ring-1 ring-slate-400 ' + s.color : s.color + ' opacity-60 hover:opacity-100'
+              }`}
+            >
+              {s.label}
             </button>
           ))}
         </div>
@@ -347,6 +382,23 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
                         </span>
                       )}
                     </div>
+                    <div className="mt-1">
+                      {onUpdateBusiness ? (
+                        <select
+                          value={result.business.status || 'nuevo'}
+                          onChange={(e) => onUpdateBusiness(result.business.name, { status: e.target.value as Business['status'] })}
+                          className={`rounded-full border-0 px-2 py-0.5 text-xs font-medium ${getStatusMeta(result.business.status).color}`}
+                        >
+                          {PIPELINE_STATUSES.map((s) => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusMeta(result.business.status).color}`}>
+                          {getStatusMeta(result.business.status).label}
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
                       {result.business.phone && (
                         <span className="flex items-center gap-1">
@@ -387,7 +439,7 @@ export default function WhatsAppPanel({ results, onRemove }: Props) {
 
                     {/* Mark sent / unsent */}
                     <button
-                      onClick={() => toggleSent(result.business.name)}
+                      onClick={() => toggleSent(result.business.name, result.business.status)}
                       className={`rounded-lg border p-2 text-sm transition-colors ${
                         isSent
                           ? 'border-green-300 bg-green-100 text-green-700 hover:bg-green-200'
