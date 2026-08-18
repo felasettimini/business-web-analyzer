@@ -30,6 +30,8 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [loadAllProgress, setLoadAllProgress] = useState(0);
 
   const searchGoogleMaps = async (searchQuery?: string, pageToken?: string) => {
     const q = searchQuery || query;
@@ -69,6 +71,55 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
     }
 
     setSearching(false);
+  };
+
+  const loadAllResults = async () => {
+    if (!nextPageToken) {
+      alert('No hay más resultados que cargar');
+      return;
+    }
+
+    setLoadingAll(true);
+    setLoadAllProgress(0);
+    let accumulated: Business[] = [...searchResults];
+    let currentToken: string | null = nextPageToken;
+    let pageCount = 1;
+
+    try {
+      while (currentToken) {
+        setLoadAllProgress(pageCount);
+        const res = await fetch('/api/google-places', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, pageToken: currentToken }),
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data: any = await res.json();
+
+        if (!res.ok) {
+          setError(data.error || 'Error loading more results');
+          break;
+        }
+
+        if (data.businesses) {
+          accumulated = [...accumulated, ...data.businesses];
+        }
+        currentToken = data.nextPageToken || null;
+        pageCount += 1;
+
+        // Small delay para no abusar de la API
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      setSearchResults(accumulated);
+      setNextPageToken(null);
+      setError(null);
+    } catch {
+      setError('Error cargando todos los resultados');
+    }
+
+    setLoadingAll(false);
   };
 
   const addAllToList = () => {
@@ -295,22 +346,38 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
             </table>
           </div>
 
-          {/* Load More */}
+          {/* Load More / Load All */}
           {nextPageToken && (
-            <button
-              onClick={() => searchGoogleMaps(undefined, nextPageToken)}
-              disabled={searching}
-              className="mt-4 w-full rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-            >
-              {searching ? (
-                <>
-                  <Loader className="mr-2 inline h-4 w-4 animate-spin" />
-                  Cargando mas...
-                </>
-              ) : (
-                'Cargar mas resultados →'
-              )}
-            </button>
+            <div className="mt-4 space-y-2">
+              <button
+                onClick={loadAllResults}
+                disabled={loadingAll || searching}
+                className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {loadingAll ? (
+                  <>
+                    <Loader className="mr-2 inline h-4 w-4 animate-spin" />
+                    Cargando TODO (página {loadAllProgress})...
+                  </>
+                ) : (
+                  'Cargar TODO →'
+                )}
+              </button>
+              <button
+                onClick={() => searchGoogleMaps(undefined, nextPageToken)}
+                disabled={searching || loadingAll}
+                className="w-full rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+              >
+                {searching ? (
+                  <>
+                    <Loader className="mr-2 inline h-4 w-4 animate-spin" />
+                    Cargando mas...
+                  </>
+                ) : (
+                  'Cargar más resultados (1 página) →'
+                )}
+              </button>
+            </div>
           )}
         </div>
       )}
