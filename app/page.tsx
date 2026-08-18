@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save, StickyNote } from 'lucide-react';
+import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save, StickyNote, Camera } from 'lucide-react';
 import { AnalysisResult, Business } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
+import { calculateLeadScore } from '@/lib/leadScore';
 import AnalysisCard from '@/components/AnalysisCard';
 import GoogleMapsSearch from '@/components/GoogleMapsSearch';
 import WhatsAppPanel from '@/components/WhatsAppPanel';
@@ -35,6 +36,8 @@ export default function Home() {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [loaded, setLoaded] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [capturingAll, setCapturingAll] = useState(false);
+  const [captureProgress, setCaptureProgress] = useState({ current: 0, total: 0 });
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -203,6 +206,39 @@ export default function Home() {
     const note = prompt(`Nota para ${business.name}:`, business.notes || '');
     if (note === null) return;
     updateBusiness(business.name, { notes: note });
+  };
+
+  const captureAllScreenshots = async () => {
+    const pending = results.filter(
+      r => r.business.website && !r.business.onlySocial && !r.business.screenshotUrl
+    );
+    if (pending.length === 0) {
+      alert('No hay sitios pendientes de captura (o ya tienen screenshot)');
+      return;
+    }
+
+    setCapturingAll(true);
+    setCaptureProgress({ current: 0, total: pending.length });
+
+    for (let i = 0; i < pending.length; i++) {
+      const business = pending[i].business;
+      setCaptureProgress({ current: i + 1, total: pending.length });
+      try {
+        const res = await fetch('/api/screenshot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: business.website }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          updateBusiness(business.name, { screenshotUrl: data.screenshotUrl });
+        }
+      } catch {
+        // seguimos con el siguiente aunque falle uno
+      }
+    }
+
+    setCapturingAll(false);
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
@@ -473,12 +509,37 @@ export default function Home() {
               </div>
             )}
 
+            {/* Progress Bar (while capturing screenshots) */}
+            {capturingAll && (
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+                <div className="mb-2 flex justify-between text-sm">
+                  <span className="font-medium text-purple-900">Capturando screenshots...</span>
+                  <span className="text-purple-700">{captureProgress.current}/{captureProgress.total}</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-purple-200">
+                  <div
+                    className="h-full rounded-full bg-purple-600 transition-all duration-300"
+                    style={{ width: `${(captureProgress.current / captureProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {results.length > 0 && (
               <div className="flex flex-wrap justify-between items-center gap-3">
                 <h2 className="text-xl font-semibold">
                   Resultados — {results.filter(r => r.analysis?.opportunity === 'high' || !r.business.hasWebsite).length} oportunidades altas
                 </h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={captureAllScreenshots}
+                    disabled={capturingAll}
+                    className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                    title="Genera screenshots de todos los sitios que todavia no tienen (solo funciona corriendo la app en local)"
+                  >
+                    {capturingAll ? <Loader className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                    Capturar screenshots
+                  </button>
                   <button
                     onClick={downloadResults}
                     className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
@@ -560,16 +621,12 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Results — No website first, then by opportunity */}
-                {results
+                {/* Results — ordenados por lead score (mejor oportunidad primero) */}
+                {[...results]
                   .sort((a, b) => {
-                    // No website first
-                    if (!a.business.hasWebsite && b.business.hasWebsite) return -1;
-                    if (a.business.hasWebsite && !b.business.hasWebsite) return 1;
-                    // Then by score (low = better opportunity)
-                    const scoreA = a.analysis?.overall ?? 999;
-                    const scoreB = b.analysis?.overall ?? 999;
-                    return scoreA - scoreB;
+                    const scoreA = calculateLeadScore(a.business, a.analysis);
+                    const scoreB = calculateLeadScore(b.business, b.analysis);
+                    return scoreB - scoreA;
                   })
                   .map((result, index) => (
                     <AnalysisCard key={index} result={result} onRemove={removeBusiness} onUpdateBusiness={updateBusiness} />

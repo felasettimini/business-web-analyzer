@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Search, MapPin, Loader, Plus, AlertTriangle, Globe, Phone } from 'lucide-react';
 import { Business } from '@/lib/types';
+import { isSameBusiness } from '@/lib/dedup';
 
 interface Props {
   onBusinessesLoaded: (businesses: Business[]) => void;
@@ -72,13 +73,13 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
 
   const addAllToList = () => {
     const newBusinesses = searchResults.filter(
-      sr => !existingBusinesses.some(eb => eb.name === sr.name && eb.address === sr.address)
+      sr => !existingBusinesses.some(eb => isSameBusiness(eb, sr))
     );
     onBusinessesLoaded([...existingBusinesses, ...newBusinesses]);
   };
 
   const addSingleToList = (business: Business) => {
-    if (!existingBusinesses.some(eb => eb.name === business.name && eb.address === business.address)) {
+    if (!existingBusinesses.some(eb => isSameBusiness(eb, business))) {
       onBusinessesLoaded([...existingBusinesses, business]);
     }
   };
@@ -227,9 +228,7 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
               </thead>
               <tbody>
                 {searchResults.map((business, i) => {
-                  const alreadyAdded = existingBusinesses.some(
-                    eb => eb.name === business.name && eb.address === business.address
-                  );
+                  const alreadyAdded = existingBusinesses.some(eb => isSameBusiness(eb, business));
                   return (
                     <tr key={i} className="border-b hover:bg-slate-50">
                       <td className="px-3 py-2">

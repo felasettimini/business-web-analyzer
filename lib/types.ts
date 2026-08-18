@@ -15,6 +15,7 @@ export interface Business {
   analyzed?: boolean;
   status?: PipelineStatus; // pipeline de venta, default 'nuevo' si no esta seteado
   notes?: string;          // notas libres del vendedor
+  screenshotUrl?: string;  // captura de la web actual, generada con Puppeteer (solo local)
 }
 
 export interface WebsiteAnalysis {

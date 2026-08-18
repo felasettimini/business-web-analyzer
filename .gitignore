@@ -38,3 +38,6 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+
+# generated screenshots (local-only, no tiene sentido versionarlos)
+/public/screenshots/

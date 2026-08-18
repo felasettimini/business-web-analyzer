@@ -5,6 +5,7 @@ import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3,
 import { AnalysisResult, WhatsAppTemplate, Business, PipelineStatus } from '@/lib/types';
 import { defaultTemplates, fillTemplate, generateWhatsAppLink } from '@/lib/whatsappTemplates';
 import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
+import { calculateLeadScore, leadScoreLabel } from '@/lib/leadScore';
 
 const SENT_STORAGE_KEY = 'bwa_sent';
 const NO_WA_STORAGE_KEY = 'bwa_no_whatsapp';
@@ -57,14 +58,17 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
     if (filter === 'with-phone') {
       filtered = filtered.filter(r => r.business.phone);
     } else if (filter === 'high-opportunity') {
-      filtered = filtered.filter(r => r.business.phone && (r.analysis?.opportunity === 'high' || !r.business.hasWebsite || r.business.onlySocial));
+      filtered = filtered.filter(r => r.business.phone && calculateLeadScore(r.business, r.analysis) >= 55);
     }
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(r => (r.business.status || 'nuevo') === statusFilter);
     }
 
-    return filtered;
+    // Mejores leads primero
+    return [...filtered].sort(
+      (a, b) => calculateLeadScore(b.business, b.analysis) - calculateLeadScore(a.business, a.analysis)
+    );
   }, [results, filter, statusFilter]);
 
   const getMessageForBusiness = (result: AnalysisResult): string => {
@@ -376,11 +380,15 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
                           <Check className="h-3 w-3" /> Enviado
                         </span>
                       )}
-                      {(result.analysis?.opportunity === 'high' || !result.business.hasWebsite || result.business.onlySocial) && !isSent && !isNoWa && (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
-                          HIGH
-                        </span>
-                      )}
+                      {!isSent && !isNoWa && (() => {
+                        const score = calculateLeadScore(result.business, result.analysis);
+                        const meta = leadScoreLabel(score);
+                        return (
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${meta.color}`} title="Lead score">
+                            {score} · {meta.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div className="mt-1">
                       {onUpdateBusiness ? (
@@ -407,7 +415,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
                         </span>
                       )}
                       {result.analysis && (
-                        <span>Score: {result.analysis.overall}/100</span>
+                        <span>Web: {result.analysis.overall}/100</span>
                       )}
                       {result.business.onlySocial && (
                         <span className="text-purple-600 font-medium">Solo redes</span>

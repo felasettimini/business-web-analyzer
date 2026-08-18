@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { AnalysisResult, Business } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
-import { AlertCircle, CheckCircle, TrendingUp, X, StickyNote } from 'lucide-react';
+import { calculateLeadScore, leadScoreLabel } from '@/lib/leadScore';
+import { AlertCircle, CheckCircle, TrendingUp, X, StickyNote, Flame, Camera, Loader } from 'lucide-react';
 
 interface Props {
   result: AnalysisResult;
@@ -24,6 +26,75 @@ const opportunityColor = (opp: 'high' | 'medium' | 'low'): string => {
 
 export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Props) {
   const { business, analysis, error } = result;
+  const leadScore = calculateLeadScore(business, analysis);
+  const leadMeta = leadScoreLabel(leadScore);
+  const [capturing, setCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+
+  const captureScreenshot = async () => {
+    if (!business.website || !onUpdateBusiness) return;
+    setCapturing(true);
+    setCaptureError(null);
+    try {
+      const res = await fetch('/api/screenshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: business.website }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCaptureError(data.error || 'No se pudo capturar');
+      } else {
+        onUpdateBusiness(business.name, { screenshotUrl: data.screenshotUrl });
+      }
+    } catch {
+      setCaptureError('Error de conexion capturando la pantalla');
+    }
+    setCapturing(false);
+  };
+
+  const screenshotBlock = onUpdateBusiness && business.website && !business.onlySocial && (
+    <div className="mt-3">
+      {business.screenshotUrl ? (
+        <div className="flex items-start gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={business.screenshotUrl}
+            alt={`Captura de ${business.name}`}
+            className="h-24 w-40 rounded border border-slate-200 object-cover object-top"
+          />
+          <button
+            onClick={captureScreenshot}
+            disabled={capturing}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {capturing ? <Loader className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+            Recapturar
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={captureScreenshot}
+          disabled={capturing}
+          className="flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {capturing ? <Loader className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+          {capturing ? 'Capturando...' : 'Capturar screenshot de la web'}
+        </button>
+      )}
+      {captureError && <p className="mt-1 text-xs text-red-600">{captureError}</p>}
+    </div>
+  );
+
+  const leadScoreBadge = (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${leadMeta.color}`}
+      title="Score compuesto: calidad del negocio (rating + reviews) + necesidad de web nueva"
+    >
+      <Flame className="h-3 w-3" />
+      {leadScore} · {leadMeta.label}
+    </span>
+  );
 
   const editNotes = () => {
     if (!onUpdateBusiness) return;
@@ -66,7 +137,7 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
         <div className="flex items-start gap-3">
           <AlertCircle className={`h-5 w-5 ${iconColor} flex-shrink-0 mt-0.5`} />
           <div className="flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className={`font-semibold ${textColor}`}>{business.name}</h3>
               {isSocialOnly && (
                 <span className="rounded-full bg-purple-200 px-2 py-0.5 text-xs font-medium text-purple-800">Solo redes</span>
@@ -74,6 +145,7 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
               {!business.hasWebsite && !isSocialOnly && (
                 <span className="rounded-full bg-red-200 px-2 py-0.5 text-xs font-medium text-red-800">Sin web</span>
               )}
+              {leadScoreBadge}
             </div>
             <p className={`text-sm ${subColor}`}>{error}</p>
             {business.socialMedia && (
@@ -85,6 +157,7 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
               <p className="mt-1 text-xs text-slate-600">Tel: {business.phone}</p>
             )}
             {statusControls}
+            {screenshotBlock}
           </div>
           {onRemove && (
             <button
@@ -107,7 +180,10 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
       {/* Header */}
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">{business.name}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-bold text-slate-900">{business.name}</h3>
+            {leadScoreBadge}
+          </div>
           {business.website && (
             <a
               href={business.website}
@@ -152,6 +228,7 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
       </div>
 
       {statusControls}
+      {screenshotBlock}
 
       {/* Scores Grid */}
       <div className="mb-4 grid grid-cols-5 gap-2 md:gap-3">
