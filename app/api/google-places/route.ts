@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
           'places.googleMapsUri',
           'places.rating',
           'places.userRatingCount',
+          'nextPageToken', // sin esto, la API (New) NO devuelve el token de paginacion
         ].join(','),
       },
       body: JSON.stringify({
