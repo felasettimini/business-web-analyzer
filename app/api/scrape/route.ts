@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Business } from '@/lib/types';
+import { isSocialMediaUrl } from '@/lib/socialMedia';
 
 export const maxDuration = 60;
 
@@ -32,15 +33,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Process businesses
-    const processedBusinesses: Business[] = businesses.map((b: MapsBusiness) => ({
-      name: b.name,
-      website: b.website,
-      phone: b.phone,
-      address: b.address,
-      rating: b.rating,
-      reviews: b.reviews,
-      hasWebsite: !!b.website && b.website.trim().length > 0,
-    }));
+    const processedBusinesses: Business[] = businesses.map((b: MapsBusiness) => {
+      const rawUrl = b.website?.trim() || undefined;
+      const isSocial = isSocialMediaUrl(rawUrl);
+
+      return {
+        name: b.name,
+        website: isSocial ? undefined : rawUrl, // Facebook/Instagram no es un sitio real
+        phone: b.phone,
+        address: b.address,
+        rating: b.rating,
+        reviews: b.reviews,
+        hasWebsite: !!rawUrl && !isSocial,
+        socialMedia: isSocial ? rawUrl : undefined,
+        onlySocial: isSocial,
+      };
+    });
 
     return NextResponse.json({
       success: true,

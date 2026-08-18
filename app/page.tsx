@@ -5,6 +5,7 @@ import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, 
 import { AnalysisResult, Business } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
 import { calculateLeadScore } from '@/lib/leadScore';
+import { isSocialMediaUrl } from '@/lib/socialMedia';
 import AnalysisCard from '@/components/AnalysisCard';
 import GoogleMapsSearch from '@/components/GoogleMapsSearch';
 import WhatsAppPanel from '@/components/WhatsAppPanel';
@@ -16,6 +17,22 @@ const STORAGE_KEYS = {
   results: 'bwa_results',
   sentMessages: 'bwa_sent',
 };
+
+// Normaliza un negocio cargado manualmente (JSON): si el "website" en
+// realidad es un link de Facebook/Instagram/etc, lo tratamos como que
+// no tiene sitio web propio (prospect de alta oportunidad).
+function normalizeBusiness(b: Business): Business {
+  const rawUrl = b.website?.trim() || undefined;
+  const isSocial = isSocialMediaUrl(rawUrl) || !!b.onlySocial;
+
+  return {
+    ...b,
+    website: isSocial ? undefined : rawUrl,
+    hasWebsite: !!rawUrl && !isSocial,
+    socialMedia: isSocial ? (rawUrl || b.socialMedia) : b.socialMedia,
+    onlySocial: isSocial,
+  };
+}
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -76,10 +93,7 @@ export default function Home() {
         const data = JSON.parse(text);
 
         if (Array.isArray(data)) {
-          const processed = data.map((b: Business) => ({
-            ...b,
-            hasWebsite: b.hasWebsite ?? !!b.website,
-          }));
+          const processed = data.map((b: Business) => normalizeBusiness(b));
           setBusinesses(processed);
         }
       } catch {
@@ -96,10 +110,7 @@ export default function Home() {
     try {
       const data = JSON.parse(json);
       if (Array.isArray(data)) {
-        const processed = data.map((b: Business) => ({
-          ...b,
-          hasWebsite: b.hasWebsite ?? !!b.website,
-        }));
+        const processed = data.map((b: Business) => normalizeBusiness(b));
         setBusinesses(processed);
         alert(`Loaded ${data.length} businesses`);
       }

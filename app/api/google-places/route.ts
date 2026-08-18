@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isSocialMediaUrl } from '@/lib/socialMedia';
 
 export const maxDuration = 30;
 
@@ -95,31 +96,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Social media domains — these are NOT real websites
-    const socialDomains = [
-      'facebook.com', 'fb.com', 'fb.me',
-      'instagram.com', 'instagr.am',
-      'twitter.com', 'x.com',
-      'tiktok.com',
-      'linkedin.com',
-      'youtube.com', 'youtu.be',
-      'linktr.ee',
-      'bit.ly',
-    ];
-
-    const isSocialMedia = (url: string): boolean => {
-      try {
-        const hostname = new URL(url).hostname.replace('www.', '').replace('m.', '');
-        return socialDomains.some(d => hostname === d || hostname.endsWith('.' + d));
-      } catch {
-        return false;
-      }
-    };
-
     // Map to our Business format
     const businesses = places.map((place) => {
       const rawUrl = place.websiteUri || undefined;
-      const isSocial = rawUrl ? isSocialMedia(rawUrl) : false;
+      const isSocial = isSocialMediaUrl(rawUrl);
 
       return {
         name: place.displayName?.text || 'Unknown',

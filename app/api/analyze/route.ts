@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeWebsite } from '@/lib/websiteAnalyzer';
 import { WebsiteAnalysis } from '@/lib/types';
+import { isSocialMediaUrl } from '@/lib/socialMedia';
 
 export const maxDuration = 60;
 
@@ -10,6 +11,13 @@ export async function POST(request: NextRequest) {
 
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+    }
+
+    if (isSocialMediaUrl(url)) {
+      return NextResponse.json(
+        { error: 'Es un link de red social, no un sitio web propio — no se analiza como website' },
+        { status: 400 }
+      );
     }
 
     // Normalize URL
