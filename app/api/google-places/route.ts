@@ -21,8 +21,8 @@ export const maxDuration = 30;
 
 interface AddressComponent {
   longText: string;
-  shortText: string;
-  types: string[];
+  shortText?: string;
+  types?: string[]; // Google a veces omite "types" en algunos componentes (ej. codigo postal sin reconocer)
   languageCode: string;
 }
 
@@ -47,7 +47,7 @@ function extractAddressComponent(
 ): string | undefined {
   if (!components) return undefined;
   for (const type of types) {
-    const match = components.find((c) => c.types.includes(type));
+    const match = components.find((c) => c.types?.includes(type));
     if (match) return match.longText;
   }
   return undefined;
