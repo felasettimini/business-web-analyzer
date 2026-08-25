@@ -19,16 +19,38 @@ export const maxDuration = 30;
  * Pricing: Google gives $200/month free credit → ~6000 free searches/month
  */
 
+interface AddressComponent {
+  longText: string;
+  shortText: string;
+  types: string[];
+  languageCode: string;
+}
+
 interface PlaceNew {
   id: string;
   displayName?: { text: string; languageCode: string };
   formattedAddress?: string;
+  addressComponents?: AddressComponent[];
   nationalPhoneNumber?: string;
   internationalPhoneNumber?: string;
   websiteUri?: string;
   googleMapsUri?: string;
   rating?: number;
   userRatingCount?: number;
+}
+
+// Busca el primer componente de direccion que matchee alguno de los tipos pedidos
+// (en orden de preferencia), para sacar ciudad/pais de addressComponents.
+function extractAddressComponent(
+  components: AddressComponent[] | undefined,
+  types: string[]
+): string | undefined {
+  if (!components) return undefined;
+  for (const type of types) {
+    const match = components.find((c) => c.types.includes(type));
+    if (match) return match.longText;
+  }
+  return undefined;
 }
 
 export async function POST(request: NextRequest) {
@@ -60,6 +82,7 @@ export async function POST(request: NextRequest) {
           'places.id',
           'places.displayName',
           'places.formattedAddress',
+          'places.addressComponents',
           'places.nationalPhoneNumber',
           'places.internationalPhoneNumber',
           'places.websiteUri',
@@ -107,6 +130,8 @@ export async function POST(request: NextRequest) {
         website: isSocial ? undefined : rawUrl,      // Only set if it's a real website
         phone: place.internationalPhoneNumber || place.nationalPhoneNumber || undefined,
         address: place.formattedAddress || undefined,
+        city: extractAddressComponent(place.addressComponents, ['locality', 'administrative_area_level_2', 'sublocality']),
+        country: extractAddressComponent(place.addressComponents, ['country']),
         rating: place.rating || undefined,
         reviews: place.userRatingCount || undefined,
         mapUrl: place.googleMapsUri || undefined,

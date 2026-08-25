@@ -38,3 +38,14 @@ export function leadScoreLabel(score: number): { label: string; color: string } 
   if (score >= 35) return { label: 'Lead medio', color: 'bg-yellow-100 text-yellow-700' };
   return { label: 'Lead bajo', color: 'bg-slate-100 text-slate-600' };
 }
+
+/**
+ * Prioridad segun presencia web: 0 = sin web ni redes (mayor oportunidad),
+ * 1 = solo redes sociales, 2 = tiene web propia (menor oportunidad).
+ * Se usa como criterio de orden principal en las listas, antes del lead score.
+ */
+export function webPresencePriority(business: Business): number {
+  if (!business.hasWebsite && !business.onlySocial) return 0;
+  if (business.onlySocial) return 1;
+  return 2;
+}

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save, StickyNote, Camera } from 'lucide-react';
-import { AnalysisResult, Business } from '@/lib/types';
-import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
-import { calculateLeadScore } from '@/lib/leadScore';
+import { useState, useEffect, useMemo } from 'react';
+import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save, StickyNote, Camera, Pencil } from 'lucide-react';
+import { AnalysisResult, Business, PipelineStatus } from '@/lib/types';
+import { PIPELINE_STATUSES, getStatusMeta, promptDiscardReason, shouldAutoDiscard } from '@/lib/pipeline';
+import { calculateLeadScore, webPresencePriority } from '@/lib/leadScore';
 import { isSocialMediaUrl } from '@/lib/socialMedia';
 import AnalysisCard from '@/components/AnalysisCard';
 import GoogleMapsSearch from '@/components/GoogleMapsSearch';
@@ -55,6 +55,8 @@ export default function Home() {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [capturingAll, setCapturingAll] = useState(false);
   const [captureProgress, setCaptureProgress] = useState({ current: 0, total: 0 });
+  const [businessCategoryFilter, setBusinessCategoryFilter] = useState<string>('all');
+  const [businessSearchQuery, setBusinessSearchQuery] = useState('');
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -174,6 +176,18 @@ export default function Home() {
     setAnalyzing(false);
   };
 
+  const downloadConversations = () => {
+    const data = businesses
+      .filter(b => b.conversationLog && b.conversationLog.length > 0)
+      .map(b => ({ name: b.name, status: b.status, conversationLog: b.conversationLog }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conversaciones-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+  };
+
   const downloadResults = () => {
     const csv = [
       ['Business', 'Phone', 'Website', 'Has Website', 'Overall Score', 'Opportunity', 'Mobile', 'Speed', 'Design', 'SEO', 'Contact', 'Issues'].join(','),
@@ -206,6 +220,22 @@ export default function Home() {
     setResults(prev => prev.filter(r => r.business.name !== name));
   };
 
+  const businessCategories = useMemo(
+    () => Array.from(new Set(businesses.map(b => b.category).filter((c): c is string => !!c))).sort(),
+    [businesses]
+  );
+
+  const filteredBusinessesForTable = useMemo(() => {
+    let list = businesses;
+    if (businessCategoryFilter === '__none__') list = list.filter(b => !b.category);
+    else if (businessCategoryFilter !== 'all') list = list.filter(b => b.category === businessCategoryFilter);
+
+    const query = businessSearchQuery.trim().toLowerCase();
+    if (query) list = list.filter(b => b.name.toLowerCase().includes(query));
+
+    return list;
+  }, [businesses, businessCategoryFilter, businessSearchQuery]);
+
   const updateBusiness = (name: string, updates: Partial<Business>) => {
     setBusinesses(prev => prev.map(b => (b.name === name ? { ...b, ...updates } : b)));
     setResults(prev =>
@@ -213,10 +243,56 @@ export default function Home() {
     );
   };
 
+  // Si paso una semana desde el ultimo mensaje mio y el contacto nunca respondio de
+  // verdad (ni una palabra, o solo mensajes automaticos), lo paso solo a "descartado".
+  // Si en algun momento respondio personalmente no lo toco, aunque pase el tiempo,
+  // porque ahi todavia queda chance de insistir mas adelante.
+  useEffect(() => {
+    if (!loaded) return;
+    businesses.forEach((b) => {
+      if (b.status === 'descartado' || b.status === 'interesado' || b.status === 'cliente') return;
+      if (shouldAutoDiscard(b)) {
+        updateBusiness(b.name, { status: 'descartado', discardReason: 'no-contesto', nextFollowUpAt: undefined });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businesses, loaded]);
+
+  const handleStatusChange = (name: string, newStatus: PipelineStatus) => {
+    const updates: Partial<Business> = { status: newStatus };
+    if (newStatus === 'descartado') {
+      updates.discardReason = promptDiscardReason();
+      updates.nextFollowUpAt = undefined;
+    } else if (newStatus !== 'contactado') {
+      updates.nextFollowUpAt = undefined;
+    }
+    updateBusiness(name, updates);
+  };
+
   const editNotes = (business: Business) => {
     const note = prompt(`Nota para ${business.name}:`, business.notes || '');
     if (note === null) return;
     updateBusiness(business.name, { notes: note });
+  };
+
+  const editCategory = (business: Business) => {
+    const category = prompt(`Categoria para ${business.name} (ej: peluquerias, inmobiliarias):`, business.category || '');
+    if (category === null) return;
+    updateBusiness(business.name, { category: category.trim() || undefined });
+  };
+
+  // Google Maps a veces no tiene cargado el sitio web del negocio aunque exista
+  // (el dueno nunca lo puso en su ficha). Esto deja cargarlo a mano; despues hay
+  // que correr "Analizar sitios web" de nuevo para que se analice.
+  const editWebsite = (business: Business) => {
+    const url = prompt(`Website para ${business.name} (dejar vacio para sacarlo):`, business.website || '');
+    if (url === null) return;
+    const trimmed = url.trim();
+    if (trimmed) {
+      updateBusiness(business.name, { website: trimmed, hasWebsite: true, onlySocial: false });
+    } else {
+      updateBusiness(business.name, { website: undefined, hasWebsite: false });
+    }
   };
 
   const captureAllScreenshots = async () => {
@@ -365,7 +441,29 @@ export default function Home() {
             {/* Business List */}
             {businesses.length > 0 && (
               <div className="rounded-lg border border-slate-200 bg-white p-6">
-                <h3 className="mb-4 text-lg font-semibold">Negocios cargados ({businesses.length})</h3>
+                <h3 className="mb-4 text-lg font-semibold">
+                  Negocios cargados ({filteredBusinessesForTable.length}{(businessCategoryFilter !== 'all' || businessSearchQuery.trim()) ? ` de ${businesses.length}` : ''})
+                </h3>
+
+                <div className="mb-4 relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={businessSearchQuery}
+                    onChange={(e) => setBusinessSearchQuery(e.target.value)}
+                    placeholder="Buscar negocio por nombre..."
+                    className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-9 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                  {businessSearchQuery && (
+                    <button
+                      onClick={() => setBusinessSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      title="Limpiar busqueda"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
 
                 <div className="mb-4 grid grid-cols-4 gap-3 text-sm">
                   <div className="rounded-lg bg-green-50 p-3 text-center">
@@ -394,11 +492,48 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Filtro por categoria (tipo de negocio) para separar peluquerias, inmobiliarias, etc. */}
+                {businessCategories.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <label className="text-sm font-medium text-slate-700 mr-2 self-center">Categoria:</label>
+                    <button
+                      onClick={() => setBusinessCategoryFilter('all')}
+                      className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                        businessCategoryFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      Todas ({businesses.length})
+                    </button>
+                    {businessCategories.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setBusinessCategoryFilter(c)}
+                        className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                          businessCategoryFilter === c ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                        }`}
+                      >
+                        {c} ({businesses.filter(b => b.category === c).length})
+                      </button>
+                    ))}
+                    {businesses.some(b => !b.category) && (
+                      <button
+                        onClick={() => setBusinessCategoryFilter('__none__')}
+                        className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                          businessCategoryFilter === '__none__' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        Sin categoria ({businesses.filter(b => !b.category).length})
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div className="max-h-96 overflow-y-auto rounded border border-slate-200">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-slate-100">
                       <tr>
                         <th className="border-b px-3 py-2 text-left font-semibold">Negocio</th>
+                        <th className="border-b px-3 py-2 text-left font-semibold">Categoria</th>
                         <th className="border-b px-3 py-2 text-left font-semibold">Website</th>
                         <th className="border-b px-3 py-2 text-left font-semibold">Telefono</th>
                         <th className="border-b px-3 py-2 text-left font-semibold">Rating</th>
@@ -408,20 +543,55 @@ export default function Home() {
                       </tr>
                     </thead>
                     <tbody>
-                      {businesses.map((b, i) => (
+                      {[...filteredBusinessesForTable]
+                        .sort((a, b) => webPresencePriority(a) - webPresencePriority(b))
+                        .map((b, i) => (
                         <tr key={i} className="border-b hover:bg-slate-50 group">
                           <td className="px-3 py-2 font-medium">{b.name}</td>
                           <td className="px-3 py-2">
+                            <button
+                              onClick={() => editCategory(b)}
+                              className={`rounded px-1.5 py-0.5 text-xs ${b.category ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' : 'text-slate-400 hover:bg-slate-100'}`}
+                              title="Editar categoria"
+                            >
+                              {b.category || '+ Categoria'}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2">
                             {b.hasWebsite && b.website ? (
-                              <a href={b.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
-                                {new URL(b.website.startsWith('http') ? b.website : `https://${b.website}`).hostname}
-                              </a>
+                              <span className="inline-flex items-center gap-1">
+                                <a href={b.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                                  {new URL(b.website.startsWith('http') ? b.website : `https://${b.website}`).hostname}
+                                </a>
+                                <button
+                                  onClick={() => editWebsite(b)}
+                                  className="text-slate-300 opacity-0 hover:text-slate-600 group-hover:opacity-100"
+                                  title="Editar website"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              </span>
                             ) : b.onlySocial ? (
-                              <a href={b.socialMedia} target="_blank" rel="noopener noreferrer" className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">
-                                Solo redes
-                              </a>
+                              <span className="inline-flex items-center gap-1">
+                                <a href={b.socialMedia} target="_blank" rel="noopener noreferrer" className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">
+                                  Solo redes
+                                </a>
+                                <button
+                                  onClick={() => editWebsite(b)}
+                                  className="text-slate-300 opacity-0 hover:text-slate-600 group-hover:opacity-100"
+                                  title="Cargar website real"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              </span>
                             ) : (
-                              <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700">Sin web</span>
+                              <button
+                                onClick={() => editWebsite(b)}
+                                className="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700 hover:bg-orange-200"
+                                title="Cargar website a mano"
+                              >
+                                Sin web
+                              </button>
                             )}
                           </td>
                           <td className="px-3 py-2 text-xs text-slate-600">{b.phone || '-'}</td>
@@ -429,7 +599,7 @@ export default function Home() {
                           <td className="px-3 py-2">
                             <select
                               value={b.status || 'nuevo'}
-                              onChange={(e) => updateBusiness(b.name, { status: e.target.value as Business['status'] })}
+                              onChange={(e) => handleStatusChange(b.name, e.target.value as PipelineStatus)}
                               className={`rounded-full border-0 px-2 py-1 text-xs font-medium ${getStatusMeta(b.status).color}`}
                             >
                               {PIPELINE_STATUSES.map((s) => (
@@ -559,6 +729,14 @@ export default function Home() {
                     Exportar CSV
                   </button>
                   <button
+                    onClick={downloadConversations}
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800"
+                    title="Exporta todas las conversaciones registradas a un archivo JSON"
+                  >
+                    <Download className="h-4 w-4" />
+                    Exportar conversaciones
+                  </button>
+                  <button
                     onClick={() => setActiveTab('whatsapp')}
                     className="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600"
                   >
@@ -632,9 +810,12 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Results — ordenados por lead score (mejor oportunidad primero) */}
+                {/* Results — primero sin web, despues solo redes, despues con web; dentro de cada grupo por lead score */}
                 {[...results]
                   .sort((a, b) => {
+                    const prioA = webPresencePriority(a.business);
+                    const prioB = webPresencePriority(b.business);
+                    if (prioA !== prioB) return prioA - prioB;
                     const scoreA = calculateLeadScore(a.business, a.analysis);
                     const scoreB = calculateLeadScore(b.business, b.analysis);
                     return scoreB - scoreA;
@@ -648,24 +829,24 @@ export default function Home() {
         )}
 
         {/* ==================== WHATSAPP TAB ==================== */}
-        {activeTab === 'whatsapp' && (
-          <div>
-            {results.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-                <MessageCircle className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-                <p className="text-slate-600">Primero analiza negocios para enviar mensajes</p>
-                <button
-                  onClick={() => setActiveTab('input')}
-                  className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Ir a Mis Negocios
-                </button>
-              </div>
-            ) : (
-              <WhatsAppPanel results={results} onRemove={removeBusiness} onUpdateBusiness={updateBusiness} />
-            )}
-          </div>
-        )}
+        {/* Se mantiene montado (oculto con CSS) para no resetear el template */}
+        {/* seleccionado ni el resto del estado del panel al cambiar de tab. */}
+        <div className={activeTab === 'whatsapp' ? '' : 'hidden'}>
+          {results.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
+              <MessageCircle className="mx-auto h-12 w-12 text-slate-400 mb-4" />
+              <p className="text-slate-600">Primero analiza negocios para enviar mensajes</p>
+              <button
+                onClick={() => setActiveTab('input')}
+                className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Ir a Mis Negocios
+              </button>
+            </div>
+          ) : (
+            <WhatsAppPanel results={results} onRemove={removeBusiness} onUpdateBusiness={updateBusiness} />
+          )}
+        </div>
       </main>
     </div>
   );

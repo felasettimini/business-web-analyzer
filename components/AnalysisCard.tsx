@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { AnalysisResult, Business } from '@/lib/types';
-import { PIPELINE_STATUSES, getStatusMeta } from '@/lib/pipeline';
+import { AnalysisResult, Business, PipelineStatus } from '@/lib/types';
+import { PIPELINE_STATUSES, getStatusMeta, getDiscardReasonLabel, promptDiscardReason } from '@/lib/pipeline';
 import { calculateLeadScore, leadScoreLabel } from '@/lib/leadScore';
 import { AlertCircle, CheckCircle, TrendingUp, X, StickyNote, Flame, Camera, Loader } from 'lucide-react';
 
@@ -103,17 +103,32 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
     onUpdateBusiness(business.name, { notes: note });
   };
 
+  const handleStatusChange = (newStatus: PipelineStatus) => {
+    if (!onUpdateBusiness) return;
+    const updates: Partial<Business> = { status: newStatus };
+    if (newStatus === 'descartado') {
+      updates.discardReason = promptDiscardReason();
+      updates.nextFollowUpAt = undefined;
+    } else if (newStatus !== 'contactado') {
+      updates.nextFollowUpAt = undefined;
+    }
+    onUpdateBusiness(business.name, updates);
+  };
+
   const statusControls = onUpdateBusiness && (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <select
         value={business.status || 'nuevo'}
-        onChange={(e) => onUpdateBusiness(business.name, { status: e.target.value as Business['status'] })}
+        onChange={(e) => handleStatusChange(e.target.value as PipelineStatus)}
         className={`rounded-full border-0 px-2 py-1 text-xs font-medium ${getStatusMeta(business.status).color}`}
       >
         {PIPELINE_STATUSES.map((s) => (
           <option key={s.value} value={s.value}>{s.label}</option>
         ))}
       </select>
+      {business.status === 'descartado' && business.discardReason && (
+        <span className="text-xs text-slate-500">({getDiscardReasonLabel(business.discardReason)})</span>
+      )}
       <button
         onClick={editNotes}
         className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${business.notes ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'}`}

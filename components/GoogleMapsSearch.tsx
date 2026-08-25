@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Search, MapPin, Loader, Plus, AlertTriangle, Globe, Phone } from 'lucide-react';
 import { Business } from '@/lib/types';
 import { isSameBusiness } from '@/lib/dedup';
+import { webPresencePriority } from '@/lib/leadScore';
 
 interface Props {
   onBusinessesLoaded: (businesses: Business[]) => void;
@@ -11,20 +12,22 @@ interface Props {
 }
 
 const SUGGESTED_SEARCHES = [
-  { query: 'dentistas Rosario', icon: '🦷' },
-  { query: 'peluquerias Rosario', icon: '💇' },
-  { query: 'abogados Rosario', icon: '⚖️' },
-  { query: 'barberias Rosario', icon: '💈' },
-  { query: 'academias de ingles Rosario', icon: '📚' },
-  { query: 'talleres mecanicos Rosario', icon: '🔧' },
-  { query: 'estetica Rosario', icon: '💅' },
-  { query: 'consultorios medicos Rosario', icon: '🏥' },
-  { query: 'veterinarias Rosario', icon: '🐾' },
-  { query: 'restaurantes Rosario', icon: '🍽️' },
+  { query: 'dentistas Rosario', icon: '🦷', category: 'Dentistas' },
+  { query: 'peluquerias Rosario', icon: '💇', category: 'Peluquerias' },
+  { query: 'abogados Rosario', icon: '⚖️', category: 'Abogados' },
+  { query: 'barberias Rosario', icon: '💈', category: 'Barberias' },
+  { query: 'academias de ingles Rosario', icon: '📚', category: 'Academias' },
+  { query: 'talleres mecanicos Rosario', icon: '🔧', category: 'Talleres mecanicos' },
+  { query: 'estetica Rosario', icon: '💅', category: 'Estetica' },
+  { query: 'consultorios medicos Rosario', icon: '🏥', category: 'Consultorios medicos' },
+  { query: 'veterinarias Rosario', icon: '🐾', category: 'Veterinarias' },
+  { query: 'restaurantes Rosario', icon: '🍽️', category: 'Restaurantes' },
+  { query: 'inmobiliarias Rosario', icon: '🏠', category: 'Inmobiliarias' },
 ];
 
 export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesses }: Props) {
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<Business[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
@@ -122,16 +125,19 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
     setLoadingAll(false);
   };
 
+  const tagWithCategory = (business: Business): Business =>
+    category.trim() ? { ...business, category: category.trim() } : business;
+
   const addAllToList = () => {
-    const newBusinesses = searchResults.filter(
-      sr => !existingBusinesses.some(eb => isSameBusiness(eb, sr))
-    );
+    const newBusinesses = searchResults
+      .filter(sr => !existingBusinesses.some(eb => isSameBusiness(eb, sr)))
+      .map(tagWithCategory);
     onBusinessesLoaded([...existingBusinesses, ...newBusinesses]);
   };
 
   const addSingleToList = (business: Business) => {
     if (!existingBusinesses.some(eb => isSameBusiness(eb, business))) {
-      onBusinessesLoaded([...existingBusinesses, business]);
+      onBusinessesLoaded([...existingBusinesses, tagWithCategory(business)]);
     }
   };
 
@@ -205,6 +211,20 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
           </button>
         </div>
 
+        {/* Categoria: se guarda en cada negocio que agregues, para poder separarlos despues en WhatsApp */}
+        <div className="mt-3">
+          <label className="mb-1 block text-xs font-medium text-slate-500">
+            Categoria (para separar despues por tipo de cliente, ej: peluquerias, inmobiliarias...)
+          </label>
+          <input
+            type="text"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="ej: Peluquerias"
+            className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
         {/* Suggested Searches */}
         <div className="mt-4">
           <div className="mb-2 text-xs font-medium text-slate-500">Busquedas sugeridas:</div>
@@ -214,6 +234,7 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
                 key={s.query}
                 onClick={() => {
                   setQuery(s.query);
+                  setCategory(s.category);
                   searchGoogleMaps(s.query);
                 }}
                 disabled={searching}
@@ -278,7 +299,9 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
                 </tr>
               </thead>
               <tbody>
-                {searchResults.map((business, i) => {
+                {[...searchResults]
+                  .sort((a, b) => webPresencePriority(a) - webPresencePriority(b))
+                  .map((business, i) => {
                   const alreadyAdded = existingBusinesses.some(eb => isSameBusiness(eb, business));
                   return (
                     <tr key={i} className="border-b hover:bg-slate-50">
