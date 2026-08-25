@@ -1,50 +1,80 @@
 import { Business } from './types';
 
 /**
- * Extrae ciudad y pais de una direccion formateada (estilo Google Maps), a modo de
- * "mejor esfuerzo" para negocios viejos/importados que no tienen `city`/`country`
- * estructurados (esos campos solo se completan en busquedas nuevas via Google Places).
- *
- * Formatos tipicos que intenta cubrir:
- *  - "Calle 123, S2000 Rosario, Santa Fe, Argentina"      (4 partes: calle, ciudad+CP, provincia, pais)
- *  - "Calle Mayor 1, 28013 Madrid, España"                 (3 partes: calle, ciudad+CP, pais)
- *  - "Rosario, Santa Fe, Argentina"                        (3 partes sin calle)
- *  - "Rosario, Argentina"                                  (2 partes)
- *
- * No es infalible (direcciones con formato raro pueden dar una ciudad incorrecta),
- * pero alcanza para filtrar/agrupar leads existentes.
+ * Codigos de area (caracteristica) de las ciudades argentinas mas grandes, sin el 0
+ * inicial. No es una lista exhaustiva (hay cientos de codigos para pueblos chicos),
+ * pero cubre las capitales de provincia y las ciudades mas comunes al scoutear.
+ * Ordenados de mas a menos digitos para buscar siempre el prefijo mas largo primero
+ * (evita que "11" matchee antes que un codigo de 3-4 digitos que tambien empieza en 1).
  */
-export function parseAddressParts(address?: string): { city?: string; country?: string } {
-  if (!address) return {};
+const AR_AREA_CODES: { code: string; city: string }[] = [
+  { code: '2901', city: 'Ushuaia' },
+  { code: '2920', city: 'Viedma' },
+  { code: '2966', city: 'Río Gallegos' },
+  { code: '221', city: 'La Plata' },
+  { code: '223', city: 'Mar del Plata' },
+  { code: '261', city: 'Mendoza' },
+  { code: '264', city: 'San Juan' },
+  { code: '266', city: 'San Luis' },
+  { code: '280', city: 'Puerto Madryn' },
+  { code: '291', city: 'Bahía Blanca' },
+  { code: '294', city: 'San Carlos de Bariloche' },
+  { code: '297', city: 'Comodoro Rivadavia' },
+  { code: '299', city: 'Neuquén' },
+  { code: '341', city: 'Rosario' },
+  { code: '342', city: 'Santa Fe' },
+  { code: '343', city: 'Paraná' },
+  { code: '345', city: 'Concordia' },
+  { code: '351', city: 'Córdoba' },
+  { code: '358', city: 'Río Cuarto' },
+  { code: '362', city: 'Resistencia' },
+  { code: '370', city: 'Formosa' },
+  { code: '376', city: 'Posadas' },
+  { code: '379', city: 'Corrientes' },
+  { code: '380', city: 'La Rioja' },
+  { code: '381', city: 'San Miguel de Tucumán' },
+  { code: '383', city: 'Catamarca' },
+  { code: '385', city: 'Santiago del Estero' },
+  { code: '387', city: 'Salta' },
+  { code: '388', city: 'San Salvador de Jujuy' },
+  { code: '11', city: 'Buenos Aires' },
+].sort((a, b) => b.code.length - a.code.length);
 
+/**
+ * Detecta la ciudad a partir del codigo de area del telefono. En Argentina esto es
+ * mucho mas confiable que tratar de parsear la direccion (Google la formatea distinto
+ * segun el negocio, con o sin barrio/provincia en el medio), porque el codigo de area
+ * es fijo por ciudad. Funciona con numeros en formato internacional (+54 9 341 ...)
+ * o local (0341 ...).
+ */
+function cityFromPhone(phone?: string): string | undefined {
+  if (!phone) return undefined;
+  let digits = phone.replace(/\D/g, '');
+
+  if (digits.startsWith('54')) digits = digits.slice(2); // codigo de pais
+  if (digits.startsWith('9')) digits = digits.slice(1);  // marcador de celular
+  digits = digits.replace(/^0/, '');                     // numeros locales tipo "0341..."
+
+  return AR_AREA_CODES.find((a) => digits.startsWith(a.code))?.city;
+}
+
+/** Google siempre pone el pais al final de la direccion formateada, separado por coma. */
+function countryFromAddress(address?: string): string | undefined {
+  if (!address) return undefined;
   const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
-  if (parts.length === 0) return {};
-
-  const country = parts[parts.length - 1];
-
-  let cityRaw: string | undefined;
-  if (parts.length >= 4) {
-    cityRaw = parts[parts.length - 3]; // salteamos provincia/estado y pais
-  } else if (parts.length === 3) {
-    cityRaw = parts[parts.length - 2]; // salteamos solo el pais
-  } else if (parts.length === 2) {
-    cityRaw = parts[0];
-  }
-
-  // Le sacamos codigos postales pegados adelante (ej: "S2000 Rosario" -> "Rosario", "28013 Madrid" -> "Madrid")
-  const city = cityRaw?.replace(/^[A-Z]{0,2}\d{3,6}\s+/i, '').trim() || undefined;
-
-  return { city: city || undefined, country: country || undefined };
+  return parts[parts.length - 1] || undefined;
 }
 
 /**
  * Ciudad/pais de un negocio: prioriza los campos estructurados (`city`/`country`,
- * que vienen de Google Places en busquedas nuevas) y si no estan, los infiere
- * de `address` como fallback.
+ * que vienen de Google Places en busquedas nuevas). Si faltan (leads viejos o
+ * importados a mano), infiere la ciudad del codigo de area del telefono y el pais
+ * del final de la direccion. Si no hay match, queda sin definir — mejor mostrar
+ * "sin ciudad" en el filtro que adivinar mal.
  */
 export function getBusinessLocation(business: Business): { city?: string; country?: string } {
-  if (business.city || business.country) {
-    return { city: business.city, country: business.country };
-  }
-  return parseAddressParts(business.address);
+  return {
+    city: business.city || cityFromPhone(business.phone),
+    country: business.country || countryFromAddress(business.address),
+  };
 }
