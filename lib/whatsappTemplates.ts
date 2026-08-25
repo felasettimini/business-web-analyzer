@@ -26,32 +26,22 @@ Portfolio: https://felipesettimini.com
 Te interesaria una consulta gratis para ver opciones?`,
   },
   {
-    id: 'sin-web',
-    name: 'Para negocios SIN web',
+    id: 'inmobiliaria-sin-web',
+    name: '🏠 INMOBILIARIA - Sin web',
     message: `Hola! Soy Felipe, desarrollador web en Rosario.
 
-Vi que {nombre_negocio} no tiene pagina web todavia. Hoy en dia mucha gente busca "{rubro} en Rosario" en Google, y sin web esos clientes se van a la competencia.
+Vi que {nombre_negocio} no tiene pagina web propia. Hoy en dia mucha gente busca inmobiliarias en Google antes de contactar, y sin web esos clientes se van a la competencia.
 
-Puedo armar un sitio profesional a medida con:
-- Diseño moderno y rapido
-- Optimizado para Google (SEO)
-- Boton de WhatsApp directo
-- Fotos y catalogo de productos
-
-Portfolio: https://felipesettimini.com
-
-Te gustaria charlar 15 mins sin compromiso?`,
+Te armo gratis una vista previa de como quedaria tu pagina, sin compromiso de nada. Te interesa verla?`,
   },
   {
-    id: 'web-vieja',
-    name: 'Para webs desactualizadas',
+    id: 'inmobiliaria-web-vieja',
+    name: '🏠 INMOBILIARIA - Web desactualizda',
     message: `Hola! Soy Felipe, desarrollador web en Rosario.
 
-Vi la pagina de {nombre_negocio} y note que podria tener un upgrade importante. Las webs modernas cargan mas rapido, se ven mejor en celular y posicionan mejor en Google.
+Vi la pagina de {nombre_negocio} y note que {problema_principal}. Eso hace que muchos clientes se vayan antes de contactarte.
 
-Trabajo con negocios de la zona modernizando su presencia online. Te dejo mi portfolio: https://felipesettimini.com
-
-Te interesaria que te muestre como quedaria tu sitio actualizado? Sin costo la consulta!`,
+Te armo gratis un ejemplo de como podria verse mejorada, sin compromiso de nada. Te interesa verlo?`,
   },
   {
     id: 'followup',
@@ -64,6 +54,50 @@ Cualquier duda estoy a disposicion!
 
 Felipe
 https://felipesettimini.com`,
+  },
+  {
+    id: 'followup-final',
+    name: 'Cierre (3er mensaje)',
+    message: `Hola! Se ve que no es el momento, asi que no te molesto mas por este medio.
+
+Si en algun momento te interesa mejorar la presencia online de {nombre_negocio}, quedo a disposicion.
+
+Felipe
+https://felipesettimini.com`,
+  },
+  {
+    id: 'inmobiliaria-preview-rapida',
+    name: '🏠 INMOBILIARIA - Vista previa (baja friccion)',
+    message: `Hola! Vi {nombre_negocio} en Google Maps ({rating}★, {reviews} reseñas) y note que no aparece un sitio propio cuando te buscan.
+
+Te armo gratis una vista previa rapida de tu pagina, sin compromiso. Te la mando?
+
+Felipe - desarrollador web`,
+  },
+  {
+    id: 'inmobiliaria-preview-directa',
+    name: '🏠 INMOBILIARIA - Vista previa directa',
+    message: `Hola! Soy Felipe, developer web en Rosario.
+
+Vi que {nombre_negocio} no tiene web propia. Hoy la mayoria de tus clientes potenciales googlean antes de ir a una inmobiliaria, y sin web esos clientes se van a la competencia.
+
+Te armo gratis una vista previa de como quedaria tu pagina, sin compromiso de nada. Te interesa verla?`,
+  },
+  {
+    id: 'inmobiliaria-preview-envio',
+    name: '🏠 INMOBILIARIA - Envio del link (2do paso, cuando dicen que si)',
+    message: `Genial! Te dejo la vista previa: https://web-demos-mauve.vercel.app/demo/inmobiliaria
+
+Es solo un ejemplo de estilo, tu pagina la armaria con tus propiedades, colores y datos. Que te parecio?`,
+  },
+  {
+    id: 'inmobiliaria-followup',
+    name: '🏠 INMOBILIARIA - Seguimiento (no respondio)',
+    message: `Hola de nuevo! Te escribi hace unos dias por lo de tu pagina web, pero no se si te habra llegado el mensaje.
+
+Sigue en pie lo de armarte gratis una vista previa de como quedaria, sin compromiso. Te la mando?
+
+Felipe`,
   },
 ];
 
