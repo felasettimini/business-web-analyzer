@@ -130,6 +130,12 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(r => (r.business.status || 'nuevo') === statusFilter);
+    } else {
+      // Por default no mostramos los descartados como candidatos para escribir:
+      // siguen guardados (no se borran) para no volver a agregarlos sin querer
+      // si se vuelve a scrapear la zona, pero no aparecen para contactar salvo
+      // que se elija explicitamente el filtro "Descartado".
+      filtered = filtered.filter(r => (r.business.status || 'nuevo') !== 'descartado');
     }
 
     if (categoryFilter === '__none__') {

@@ -16,6 +16,7 @@ export const DISCARD_REASONS: { value: DiscardReason; label: string }[] = [
   { value: 'no-contesto', label: 'No contestó' },
   { value: 'no-interesa', label: 'No le interesa' },
   { value: 'ya-tiene', label: 'Ya tiene web/diseñador' },
+  { value: 'web-buena', label: 'Tiene muy buena web, no vale la pena' },
   { value: 'precio', label: 'Por precio' },
   { value: 'otro', label: 'Otro' },
 ];

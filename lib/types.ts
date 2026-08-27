@@ -1,6 +1,6 @@
 export type PipelineStatus = 'nuevo' | 'contactado' | 'interesado' | 'cliente' | 'descartado';
 
-export type DiscardReason = 'no-contesto' | 'no-interesa' | 'ya-tiene' | 'precio' | 'otro';
+export type DiscardReason = 'no-contesto' | 'no-interesa' | 'ya-tiene' | 'web-buena' | 'precio' | 'otro';
 
 export interface ConversationEntry {
   date: string;              // ISO
