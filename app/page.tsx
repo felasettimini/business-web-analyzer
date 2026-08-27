@@ -6,6 +6,7 @@ import { AnalysisResult, Business, PipelineStatus } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta, promptDiscardReason, shouldAutoDiscard } from '@/lib/pipeline';
 import { calculateLeadScore, webPresencePriority } from '@/lib/leadScore';
 import { isSocialMediaUrl } from '@/lib/socialMedia';
+import { fetchAppState, saveAppState } from '@/lib/appState';
 import AnalysisCard from '@/components/AnalysisCard';
 import GoogleMapsSearch from '@/components/GoogleMapsSearch';
 import WhatsAppPanel from '@/components/WhatsAppPanel';
@@ -58,30 +59,57 @@ export default function Home() {
   const [businessCategoryFilter, setBusinessCategoryFilter] = useState<string>('all');
   const [businessSearchQuery, setBusinessSearchQuery] = useState('');
 
-  // Load from localStorage on mount
+  // Carga inicial: Supabase es la fuente de verdad (persiste y es accesible desde
+  // cualquier dispositivo). Si Supabase todavia esta vacio pero este navegador tiene
+  // datos de la version anterior (solo localStorage), los subimos una vez como semilla.
   useEffect(() => {
-    const savedBusinesses = loadFromStorage<Business[]>(STORAGE_KEYS.businesses, []);
-    const savedResults = loadFromStorage<AnalysisResult[]>(STORAGE_KEYS.results, []);
-    if (savedBusinesses.length > 0) setBusinesses(savedBusinesses);
-    if (savedResults.length > 0) setResults(savedResults);
-    if (savedBusinesses.length > 0 || savedResults.length > 0) {
-      setActiveTab(savedResults.length > 0 ? 'results' : 'input');
-    }
-    setLoaded(true);
+    (async () => {
+      const remote = await fetchAppState();
+      const localBusinesses = loadFromStorage<Business[]>(STORAGE_KEYS.businesses, []);
+      const localResults = loadFromStorage<AnalysisResult[]>(STORAGE_KEYS.results, []);
+
+      const remoteBusinesses = (remote?.businesses as Business[] | undefined) || [];
+      const remoteResults = (remote?.results as AnalysisResult[] | undefined) || [];
+
+      let finalBusinesses = remoteBusinesses;
+      let finalResults = remoteResults;
+
+      if (
+        remoteBusinesses.length === 0 &&
+        remoteResults.length === 0 &&
+        (localBusinesses.length > 0 || localResults.length > 0)
+      ) {
+        finalBusinesses = localBusinesses;
+        finalResults = localResults;
+        await saveAppState({ businesses: finalBusinesses, results: finalResults });
+      }
+
+      if (finalBusinesses.length > 0) setBusinesses(finalBusinesses);
+      if (finalResults.length > 0) setResults(finalResults);
+      if (finalBusinesses.length > 0 || finalResults.length > 0) {
+        setActiveTab(finalResults.length > 0 ? 'results' : 'input');
+      }
+      setLoaded(true);
+    })();
   }, []);
 
-  // Auto-save to localStorage when data changes
+  // Auto-save: Supabase para persistencia real (debounced), localStorage como cache local.
   useEffect(() => {
     if (!loaded) return;
     try {
       localStorage.setItem(STORAGE_KEYS.businesses, JSON.stringify(businesses));
       localStorage.setItem(STORAGE_KEYS.results, JSON.stringify(results));
-      if (businesses.length > 0 || results.length > 0) {
-        setLastSaved(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }));
-      }
     } catch {
       // localStorage full or unavailable
     }
+    const timeout = setTimeout(() => {
+      saveAppState({ businesses, results }).then(() => {
+        if (businesses.length > 0 || results.length > 0) {
+          setLastSaved(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }));
+        }
+      });
+    }, 800);
+    return () => clearTimeout(timeout);
   }, [businesses, results, loaded]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -658,6 +686,7 @@ export default function Home() {
                         localStorage.removeItem(STORAGE_KEYS.businesses);
                         localStorage.removeItem(STORAGE_KEYS.results);
                         localStorage.removeItem(STORAGE_KEYS.sentMessages);
+                        saveAppState({ businesses: [], results: [] });
                         setLastSaved(null);
                       }
                     }}

@@ -14,6 +14,7 @@ import {
 } from '@/lib/pipeline';
 import { calculateLeadScore, leadScoreLabel } from '@/lib/leadScore';
 import { getBusinessLocation } from '@/lib/address';
+import { fetchAppState, saveAppState } from '@/lib/appState';
 
 const SENT_STORAGE_KEY = 'bwa_sent';
 const NO_WA_STORAGE_KEY = 'bwa_no_whatsapp';
@@ -52,6 +53,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
       return new Set();
     }
   });
+  const [waLoaded, setWaLoaded] = useState(false);
   const [filter, setFilter] = useState<'all' | 'with-phone' | 'high-opportunity' | 'follow-up-due'>('with-phone');
   const [statusFilter, setStatusFilter] = useState<PipelineStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -97,13 +99,36 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
     }
   }, [cities, cityFilter]);
 
-  // Persist sent messages and no-whatsapp
+  // Carga inicial desde Supabase; si esta vacio pero este navegador tiene datos
+  // viejos en localStorage, los sube una vez como semilla (misma logica que page.tsx).
+  useEffect(() => {
+    (async () => {
+      const remote = await fetchAppState();
+      const remoteSent = remote?.sent_messages || [];
+      const remoteNoWa = remote?.no_whatsapp || [];
+      if (remoteSent.length > 0 || remoteNoWa.length > 0) {
+        setSentMessages(new Set(remoteSent));
+        setNoWhatsApp(new Set(remoteNoWa));
+      } else if (sentMessages.size > 0 || noWhatsApp.size > 0) {
+        await saveAppState({ sent_messages: [...sentMessages], no_whatsapp: [...noWhatsApp] });
+      }
+      setWaLoaded(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist sent messages and no-whatsapp: Supabase (debounced) + localStorage como cache
   useEffect(() => {
     try {
       localStorage.setItem(SENT_STORAGE_KEY, JSON.stringify([...sentMessages]));
       localStorage.setItem(NO_WA_STORAGE_KEY, JSON.stringify([...noWhatsApp]));
     } catch { /* ignore */ }
-  }, [sentMessages, noWhatsApp]);
+    if (!waLoaded) return;
+    const timeout = setTimeout(() => {
+      saveAppState({ sent_messages: [...sentMessages], no_whatsapp: [...noWhatsApp] });
+    }, 800);
+    return () => clearTimeout(timeout);
+  }, [sentMessages, noWhatsApp, waLoaded]);
 
   // Cualquier negocio marcado como enviado que todavia figure como "nuevo" pasa a "contactado".
   // Cubre tanto los que se marcan de ahora en mas como los que ya estaban marcados de antes.
