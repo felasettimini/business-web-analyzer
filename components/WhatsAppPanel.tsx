@@ -907,6 +907,18 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
                       {result.analysis && (
                         <span>Web: {result.analysis.overall}/100</span>
                       )}
+                      {(result.business.website || result.business.socialMedia) && (
+                        <a
+                          href={result.business.website || result.business.socialMedia}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-600 hover:underline"
+                          title={result.business.website || result.business.socialMedia}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          {result.business.website ? 'Ver web' : 'Ver redes'}
+                        </a>
+                      )}
                       {result.business.onlySocial && (
                         <span className="text-purple-600 font-medium">Solo redes</span>
                       )}
