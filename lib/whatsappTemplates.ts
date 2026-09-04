@@ -32,6 +32,42 @@ Vi la pagina de {nombre_negocio} y note que {problema_principal}. Eso hace que m
 
 Te armo gratis un ejemplo de como podria verse mejorada, sin compromiso de nada. Te interesa verlo?`,
   },
+  {
+    id: 'peluqueria-sin-web',
+    name: '💇 PELUQUERIA - Sin web',
+    message: `Hola! Soy Felipe, desarrollador web en Rosario.
+
+Vi que {nombre_negocio} no tiene pagina web propia. Hoy en dia mucha gente busca peluquerias en Google antes de ir, mira fotos y quiere reservar turno online, y sin web esos clientes se van a la competencia.
+
+Te armo gratis una vista previa de como quedaria tu pagina, sin compromiso de nada. Te interesa verla?`,
+  },
+  {
+    id: 'peluqueria-web-vieja',
+    name: '💇 PELUQUERIA - Web desactualizda',
+    message: `Hola! Soy Felipe, desarrollador web en Rosario.
+
+Vi la pagina de {nombre_negocio} y note que {problema_principal}. Eso hace que muchos clientes se vayan antes de reservar un turno.
+
+Te armo gratis un ejemplo de como podria verse mejorada, sin compromiso de nada. Te interesa verlo?`,
+  },
+  {
+    id: 'estudio-juridico-sin-web',
+    name: '⚖️ ESTUDIO JURIDICO - Sin web',
+    message: `Hola! Soy Felipe, desarrollador web en Rosario.
+
+Vi que {nombre_negocio} no tiene pagina web propia. Hoy en dia mucha gente busca e investiga a un abogado en Google antes de contactarlo, y sin web perdes esa primera impresion de seriedad frente a la competencia.
+
+Te armo gratis una vista previa de como quedaria tu pagina, sin compromiso de nada. Te interesa verla?`,
+  },
+  {
+    id: 'estudio-juridico-web-vieja',
+    name: '⚖️ ESTUDIO JURIDICO - Web desactualizda',
+    message: `Hola! Soy Felipe, desarrollador web en Rosario.
+
+Vi la pagina de {nombre_negocio} y note que {problema_principal}. Eso le resta seriedad frente a un cliente que te esta comparando con otros estudios.
+
+Te armo gratis un ejemplo de como podria verse mejorada, sin compromiso de nada. Te interesa verlo?`,
+  },
 ];
 
 /**
