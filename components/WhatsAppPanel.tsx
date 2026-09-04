@@ -202,11 +202,17 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
     }
 
     // Orden: primero pendientes, despues ya enviados, y al final del todo los que no tienen WhatsApp.
-    // Dentro de cada grupo, orden alfabetico para poder ubicar un contacto facil.
+    // Dentro de cada grupo: con el filtro "Alta oportunidad" activo, de mayor a menor lead score
+    // (para atacar primero los mejores); en el resto de los filtros, alfabetico para ubicar facil.
     return [...filtered].sort((a, b) => {
       const groupA = noWhatsApp.has(a.business.name) ? 2 : sentMessages.has(a.business.name) ? 1 : 0;
       const groupB = noWhatsApp.has(b.business.name) ? 2 : sentMessages.has(b.business.name) ? 1 : 0;
       if (groupA !== groupB) return groupA - groupB;
+      if (filter === 'high-opportunity') {
+        const scoreA = calculateLeadScore(a.business, a.analysis);
+        const scoreB = calculateLeadScore(b.business, b.analysis);
+        if (scoreA !== scoreB) return scoreB - scoreA;
+      }
       return a.business.name.localeCompare(b.business.name, 'es', { sensitivity: 'base' });
     });
   }, [results, filter, statusFilter, categoryFilter, countryFilter, cityFilter, locationsByBusiness, searchQuery, sentMessages, noWhatsApp]);
