@@ -383,11 +383,15 @@ export default function Home() {
     },
   ];
 
+  // El tablero de WhatsApp necesita todo el ancho posible para mostrar las 5 columnas
+  // sin scroll horizontal — el resto de las tabs se quedan con el ancho de lectura normal.
+  const containerMaxWidth = activeTab === 'whatsapp' ? 'max-w-[1800px]' : 'max-w-6xl';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Header — la barra de tabs hace de header, no hace falta nada mas arriba */}
       <header className="border-b border-blue-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-4">
+        <div className={`mx-auto px-4 ${containerMaxWidth}`}>
           <div className="flex gap-1 overflow-x-auto">
             {tabs.map((tab) => (
               <button
@@ -412,7 +416,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className={`mx-auto px-4 py-6 ${containerMaxWidth}`}>
         {/* ==================== SEARCH TAB ==================== */}
         {activeTab === 'search' && (
           <GoogleMapsSearch

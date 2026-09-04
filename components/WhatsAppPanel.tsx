@@ -857,7 +857,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
         </div>
 
         {view === 'board' ? (
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {PIPELINE_STATUSES.map((col) => {
               const items = boardColumns.get(col.value) || [];
               return (
@@ -872,7 +872,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
                     setDraggingName(null);
                     if (name) handleStatusChange(name, col.value);
                   }}
-                  className={`w-64 flex-shrink-0 rounded-lg border bg-slate-50/50 p-2 transition-colors ${
+                  className={`min-w-0 rounded-lg border bg-slate-50/50 p-2 transition-colors ${
                     dragOverColumn === col.value ? 'border-blue-400 bg-blue-50' : 'border-slate-200'
                   }`}
                 >
@@ -881,7 +881,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
                     <h4 className="text-sm font-semibold text-slate-700">{col.label}</h4>
                     <span className="ml-auto text-xs text-slate-400">{items.length}</span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
                     {items.map((result) => {
                       const score = calculateLeadScore(result.business, result.analysis);
                       const meta = leadScoreLabel(score);
