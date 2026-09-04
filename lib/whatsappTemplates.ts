@@ -68,6 +68,24 @@ Vi la pagina de {nombre_negocio} y note que {problema_principal}. Eso le resta s
 
 Te armo gratis un ejemplo de como podria verse mejorada, sin compromiso de nada. Te interesa verlo?`,
   },
+  {
+    id: 'dentista-sin-web',
+    name: '🦷 DENTISTA - Sin web',
+    message: `Hola! Soy Felipe, desarrollador web en Rosario.
+
+Vi que {nombre_negocio} no tiene pagina web propia. Hoy en dia mucha gente busca dentista en Google antes de elegir, quiere ver fotos del consultorio y reservar turno online, y sin web esos pacientes se van a la competencia.
+
+Te armo gratis una vista previa de como quedaria tu pagina, sin compromiso de nada. Te interesa verla?`,
+  },
+  {
+    id: 'dentista-web-vieja',
+    name: '🦷 DENTISTA - Web desactualizda',
+    message: `Hola! Soy Felipe, desarrollador web en Rosario.
+
+Vi la pagina de {nombre_negocio} y note que {problema_principal}. Eso le resta confianza a un paciente que te esta comparando con otros consultorios.
+
+Te armo gratis un ejemplo de como podria verse mejorada, sin compromiso de nada. Te interesa verlo?`,
+  },
 ];
 
 /**
