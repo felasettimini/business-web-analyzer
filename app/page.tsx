@@ -412,9 +412,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Header — la barra de tabs hace de header, no hace falta nada mas arriba */}
-      <header className="border-b border-blue-200 bg-white/80 backdrop-blur">
-        <div className={`flex items-center justify-between px-4 ${containerMaxWidth}`}>
-          <div className="flex gap-1 overflow-x-auto">
+      <header className="flex items-center justify-between border-b border-blue-200 bg-white/80 backdrop-blur">
+        <div className={`overflow-x-auto px-4 ${containerMaxWidth}`}>
+          <div className="flex gap-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -435,14 +435,14 @@ export default function Home() {
               </button>
             ))}
           </div>
+        </div>
           <button
             onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-            className="flex-shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+            className="mr-4 flex-shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
             title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-        </div>
       </header>
 
       <main className={`px-4 py-6 ${containerMaxWidth} ${activeTab === 'whatsapp' ? '' : 'mx-auto'}`}>
