@@ -22,6 +22,8 @@ export function calculateLeadScore(business: Business, analysis?: WebsiteAnalysi
     opportunityScore = 100; // sin web ni redes = maxima necesidad
   } else if (business.onlySocial) {
     opportunityScore = 90; // tiene presencia online pero no web propia
+  } else if (analysis?.indexingBlocked) {
+    opportunityScore = 95; // invisible en Google = misma oportunidad que no tener web, aunque el sitio este bien armado
   } else if (analysis) {
     opportunityScore = 100 - analysis.overall; // web mala = mas oportunidad
   } else {

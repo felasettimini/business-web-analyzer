@@ -57,6 +57,7 @@ export interface WebsiteAnalysis {
   loadTime: number;
   designAge: 'modern' | 'outdated' | 'very_outdated';
   opportunity: 'high' | 'medium' | 'low';
+  indexingBlocked: boolean; // noindex/robots.txt detectado — invisible en Google aunque cargue bien
 }
 
 export interface AnalysisResult {

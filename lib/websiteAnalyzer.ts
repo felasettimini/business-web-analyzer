@@ -1,22 +1,80 @@
 import axios from 'axios';
+import puppeteer, { Browser } from 'puppeteer';
 import * as cheerio from 'cheerio';
 import { WebsiteAnalysis } from './types';
 
+// Browser compartido entre requests (el flujo de analisis procesa negocios uno por uno
+// en secuencia — sin esto cada sitio pagaria el costo de arrancar Chromium desde cero).
+let browserPromise: Promise<Browser> | null = null;
+
+function getBrowser(): Promise<Browser> {
+  if (!browserPromise) {
+    browserPromise = puppeteer
+      .launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      })
+      .catch((err) => {
+        browserPromise = null;
+        throw err;
+      });
+  }
+  return browserPromise;
+}
+
+/**
+ * Chequea si el sitio bloquea activamente la indexacion en Google: noindex (meta o
+ * header) o robots.txt con Disallow: / para todos los bots. Es una señal gratuita y
+ * best-effort — detecta bloqueo explicito, NO detecta un sitio indexable que
+ * simplemente nunca rankeo por falta de SEO/backlinks (eso requeriria una API de
+ * busqueda paga).
+ */
+async function checkIndexingBlocked(
+  origin: string,
+  html: string,
+  responseHeaders: Record<string, string>
+): Promise<boolean> {
+  const xRobotsTag = responseHeaders['x-robots-tag'];
+  if (xRobotsTag && xRobotsTag.toLowerCase().includes('noindex')) return true;
+
+  const $ = cheerio.load(html);
+  const metaRobots = $('meta[name="robots"]').attr('content');
+  if (metaRobots && metaRobots.toLowerCase().includes('noindex')) return true;
+
+  try {
+    const robotsRes = await axios.get(`${origin}/robots.txt`, { timeout: 5000 });
+    const lines = String(robotsRes.data).split('\n').map((l) => l.trim().toLowerCase());
+    let inWildcardGroup = false;
+    for (const line of lines) {
+      if (line.startsWith('user-agent:')) {
+        inWildcardGroup = line.includes('*');
+      } else if (inWildcardGroup && line.startsWith('disallow:')) {
+        const path = line.split(':')[1]?.trim();
+        if (path === '/') return true;
+      }
+    }
+  } catch {
+    // sin robots.txt o no accesible: no es señal de bloqueo
+  }
+
+  return false;
+}
+
 export async function analyzeWebsite(url: string, businessName: string): Promise<WebsiteAnalysis> {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+
   try {
     const startTime = Date.now();
+    await page.setViewport({ width: 375, height: 812 }); // mobile-first, coherente con el negocio
 
-    // Fetch the website
-    const response = await axios.get(url, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
-
+    const response = await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
     const loadTime = Date.now() - startTime;
-    const html = response.data;
+
+    const html = await page.content();
+    const responseHeaders = response?.headers() || {};
     const $ = cheerio.load(html);
+    const origin = new URL(url).origin;
 
     // Initialize scores
     const scores = {
@@ -47,10 +105,10 @@ export async function analyzeWebsite(url: string, businessName: string): Promise
       issues.push('No mobile menu found');
     }
 
-    // ===== SPEED CHECK =====
-    if (loadTime < 2000) {
+    // ===== SPEED CHECK ===== (tiempo hasta networkidle2: carga + render completo, no solo el fetch)
+    if (loadTime < 2500) {
       scores.speed = 95;
-    } else if (loadTime < 4000) {
+    } else if (loadTime < 5000) {
       scores.speed = 70;
     } else {
       scores.speed = 40;
@@ -130,7 +188,7 @@ export async function analyzeWebsite(url: string, businessName: string): Promise
     const hasPhoneLink = html.includes('tel:');
     const hasEmailLink = html.includes('mailto:');
     const hasWhatsapp = html.includes('whatsapp') || html.includes('wa.me');
-    const hasMapEmbedded = html.includes('maps.google') || html.includes('embed') && html.includes('map');
+    const hasMapEmbedded = html.includes('maps.google') || (html.includes('embed') && html.includes('map'));
 
     if (hasContactForm) contactScore += 25;
     if (hasPhoneLink) contactScore += 15;
@@ -149,16 +207,28 @@ export async function analyzeWebsite(url: string, businessName: string): Promise
 
     scores.contactibility = Math.min(contactScore, 100);
 
+    // ===== INDEXING CHECK =====
+    const indexingBlocked = await checkIndexingBlocked(origin, html, responseHeaders as Record<string, string>);
+    if (indexingBlocked) {
+      issues.unshift('El sitio bloquea la indexación en Google (noindex/robots.txt) — invisible en búsquedas aunque cargue bien');
+    }
+
     // ===== OVERALL SCORE =====
     const overall = Math.round(
       (scores.mobile + scores.speed + scores.design + scores.seo + scores.contactibility) / 5
     );
 
     // ===== OPPORTUNITY LEVEL =====
-    let opportunity: 'high' | 'medium' | 'low' = 'low';
-    if (overall < 50) opportunity = 'high';
-    else if (overall < 70) opportunity = 'medium';
-    else opportunity = 'low';
+    let opportunity: 'high' | 'medium' | 'low';
+    if (indexingBlocked) {
+      opportunity = 'high'; // invisible en Google = misma oportunidad que no tener web
+    } else if (overall < 50) {
+      opportunity = 'high';
+    } else if (overall < 70) {
+      opportunity = 'medium';
+    } else {
+      opportunity = 'low';
+    }
 
     return {
       url,
@@ -175,9 +245,15 @@ export async function analyzeWebsite(url: string, businessName: string): Promise
       loadTime,
       designAge,
       opportunity,
+      indexingBlocked,
     };
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Failed to launch')) {
+      throw new Error('No se pudo iniciar el navegador headless. Correlo en local (no funciona en Vercel sin config extra).');
+    }
     throw new Error(`Failed to analyze website: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  } finally {
+    await page.close();
   }
 }
 
