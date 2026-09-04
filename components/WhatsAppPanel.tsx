@@ -55,7 +55,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
     }
   });
   const [waLoaded, setWaLoaded] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'with-phone' | 'high-opportunity' | 'follow-up-due' | 'no-website'>('with-phone');
+  const [filter, setFilter] = useState<'all' | 'with-phone' | 'high-opportunity' | 'follow-up-due' | 'no-website' | 'only-social' | 'with-website'>('with-phone');
   const [statusFilter, setStatusFilter] = useState<PipelineStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
@@ -155,6 +155,10 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
     } else if (filter === 'no-website') {
       // Directamente sin web propia — ni siquiera redes sociales como presencia online.
       filtered = filtered.filter(r => r.business.phone && !r.business.hasWebsite && !r.business.onlySocial);
+    } else if (filter === 'only-social') {
+      filtered = filtered.filter(r => r.business.phone && r.business.onlySocial);
+    } else if (filter === 'with-website') {
+      filtered = filtered.filter(r => r.business.phone && r.business.hasWebsite && !r.business.onlySocial);
     }
 
     if (statusFilter !== 'all') {
@@ -412,6 +416,8 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
   const pendingCount = businessesWithPhone - alreadySent - noWaCount;
   const followUpDueCount = results.filter(r => r.business.phone && isFollowUpDue(r.business.nextFollowUpAt)).length;
   const noWebsiteCount = results.filter(r => r.business.phone && !r.business.hasWebsite && !r.business.onlySocial).length;
+  const onlySocialCount = results.filter(r => r.business.phone && r.business.onlySocial).length;
+  const withWebsiteCount = results.filter(r => r.business.phone && r.business.hasWebsite && !r.business.onlySocial).length;
 
   // Conversaciones pegadas a mano (de antes de que existiera este registro) no tienen
   // lastTemplateId guardado. Para no perderlas del analisis, se detecta la plantilla
@@ -677,6 +683,8 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
           {[
             { value: 'with-phone' as const, label: 'Con telefono' },
             { value: 'no-website' as const, label: `Sin web (${noWebsiteCount})` },
+            { value: 'only-social' as const, label: `Solo redes (${onlySocialCount})` },
+            { value: 'with-website' as const, label: `Con web (${withWebsiteCount})` },
             { value: 'high-opportunity' as const, label: 'Alta oportunidad' },
             { value: 'follow-up-due' as const, label: `Seguimiento vencido (${followUpDueCount})` },
             { value: 'all' as const, label: 'Todos' },
