@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save, StickyNote, Camera, Pencil } from 'lucide-react';
-import { AnalysisResult, Business, PipelineStatus } from '@/lib/types';
+import { AnalysisResult, Business, PipelineStatus, WebsiteAnalysis } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta, promptDiscardReason, shouldAutoDiscard } from '@/lib/pipeline';
 import { calculateLeadScore, webPresencePriority } from '@/lib/leadScore';
 import { isSocialMediaUrl } from '@/lib/socialMedia';
@@ -269,6 +269,12 @@ export default function Home() {
     setResults(prev =>
       prev.map(r => (r.business.name === name ? { ...r, business: { ...r.business, ...updates } } : r))
     );
+  };
+
+  // Analiza (o re-analiza) un solo negocio puntual, sin correr toda la tanda.
+  // Se usa desde el panel de WhatsApp para chequear/actualizar uno especifico.
+  const updateAnalysis = (name: string, analysis?: WebsiteAnalysis, error?: string) => {
+    setResults(prev => prev.map(r => (r.business.name === name ? { ...r, analysis, error } : r)));
   };
 
   // Si paso una semana desde el ultimo mensaje mio y el contacto nunca respondio de
@@ -873,7 +879,7 @@ export default function Home() {
               </button>
             </div>
           ) : (
-            <WhatsAppPanel results={results} onRemove={removeBusiness} onUpdateBusiness={updateBusiness} />
+            <WhatsAppPanel results={results} onRemove={removeBusiness} onUpdateBusiness={updateBusiness} onAnalysisUpdate={updateAnalysis} />
           )}
         </div>
       </main>

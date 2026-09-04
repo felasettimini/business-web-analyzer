@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, CheckCheck, Phone, X, PhoneOff, MessageSquareText, Trash2, Bot } from 'lucide-react';
-import { AnalysisResult, WhatsAppTemplate, Business, PipelineStatus, ConversationEntry } from '@/lib/types';
+import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, CheckCheck, Phone, X, PhoneOff, MessageSquareText, Trash2, Bot, RefreshCw, Loader } from 'lucide-react';
+import { AnalysisResult, WhatsAppTemplate, Business, PipelineStatus, ConversationEntry, WebsiteAnalysis } from '@/lib/types';
 import { defaultTemplates, fillTemplate, generateWhatsAppLink } from '@/lib/whatsappTemplates';
 import {
   PIPELINE_STATUSES,
@@ -23,9 +23,10 @@ interface Props {
   results: AnalysisResult[];
   onRemove?: (name: string) => void;
   onUpdateBusiness?: (name: string, updates: Partial<Business>) => void;
+  onAnalysisUpdate?: (name: string, analysis?: WebsiteAnalysis, error?: string) => void;
 }
 
-export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: Props) {
+export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onAnalysisUpdate }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate>(defaultTemplates[0]);
   const [customMessage, setCustomMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -214,6 +215,33 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
     );
     if (!category || !category.trim()) return;
     uncategorized.forEach(r => onUpdateBusiness(r.business.name, { category: category.trim() }));
+  };
+
+  // Analiza (o re-analiza) un negocio puntual desde este panel, sin tener que ir a la
+  // tab de resultados y correr toda la tanda de nuevo — util para chequear uno solo
+  // que cambio, o que nunca se llego a analizar.
+  const [analyzingNames, setAnalyzingNames] = useState<Set<string>>(new Set());
+
+  const analyzeBusiness = async (business: Business) => {
+    if (!business.website || business.onlySocial || !onAnalysisUpdate) return;
+    setAnalyzingNames(prev => new Set(prev).add(business.name));
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: business.website, businessName: business.name }),
+      });
+      const data = await res.json();
+      onAnalysisUpdate(business.name, data.analysis, data.error);
+    } catch {
+      onAnalysisUpdate(business.name, undefined, 'Error de conexion analizando el sitio');
+    } finally {
+      setAnalyzingNames(prev => {
+        const next = new Set(prev);
+        next.delete(business.name);
+        return next;
+      });
+    }
   };
 
   const buildMessage = (result: AnalysisResult, templateMessage: string): string => {
@@ -946,6 +974,22 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness }: P
                     >
                       <Copy className="h-4 w-4" />
                     </button>
+
+                    {/* Analizar / re-analizar este negocio puntual */}
+                    {onAnalysisUpdate && result.business.website && !result.business.onlySocial && (
+                      <button
+                        onClick={() => analyzeBusiness(result.business)}
+                        disabled={analyzingNames.has(result.business.name)}
+                        className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                        title={result.analysis ? 'Re-analizar sitio' : 'Analizar sitio'}
+                      >
+                        {analyzingNames.has(result.business.name) ? (
+                          <Loader className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
 
                     {/* Mark sent / unsent */}
                     <button
