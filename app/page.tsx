@@ -391,7 +391,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Header — la barra de tabs hace de header, no hace falta nada mas arriba */}
       <header className="border-b border-blue-200 bg-white/80 backdrop-blur">
-        <div className={`mx-auto px-4 ${containerMaxWidth}`}>
+        <div className={`px-4 ${containerMaxWidth}`}>
           <div className="flex gap-1 overflow-x-auto">
             {tabs.map((tab) => (
               <button
@@ -416,7 +416,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className={`mx-auto px-4 py-6 ${containerMaxWidth}`}>
+      <main className={`px-4 py-6 ${containerMaxWidth}`}>
         {/* ==================== SEARCH TAB ==================== */}
         {activeTab === 'search' && (
           <GoogleMapsSearch
