@@ -416,7 +416,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className={`px-4 py-6 ${containerMaxWidth}`}>
+      <main className={`px-4 py-6 ${containerMaxWidth} ${activeTab === 'whatsapp' ? '' : 'mx-auto'}`}>
         {/* ==================== SEARCH TAB ==================== */}
         {activeTab === 'search' && (
           <GoogleMapsSearch
