@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { MessageCircle, Send, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, CheckCheck, Phone, X, PhoneOff, MessageSquareText, Trash2, Bot, RefreshCw, Loader } from 'lucide-react';
+import { MessageCircle, Copy, ExternalLink, ChevronDown, ChevronUp, Edit3, Check, CheckCheck, Phone, X, PhoneOff, MessageSquareText, Trash2, Bot, RefreshCw, Loader, MoreHorizontal } from 'lucide-react';
 import { AnalysisResult, WhatsAppTemplate, Business, PipelineStatus, ConversationEntry, WebsiteAnalysis } from '@/lib/types';
 import { defaultTemplates, fillTemplate, generateWhatsAppLink } from '@/lib/whatsappTemplates';
 import {
@@ -62,6 +62,9 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
   const [cityFilter, setCityFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [rubro, setRubro] = useState('');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
 
   // Categorias presentes entre los negocios cargados (peluquerias, inmobiliarias, etc.)
   const categories = useMemo(
@@ -507,346 +510,290 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
     return avg < 24 ? `${avg.toFixed(1)} h` : `${(avg / 24).toFixed(1)} d`;
   };
 
+  const presenceFilters: { value: typeof filter; label: string }[] = [
+    { value: 'with-phone', label: 'Con telefono' },
+    { value: 'no-website', label: `Sin web (${noWebsiteCount})` },
+    { value: 'only-social', label: `Solo redes (${onlySocialCount})` },
+    { value: 'with-website', label: `Con web (${withWebsiteCount})` },
+    { value: 'high-opportunity', label: 'Alta oportunidad' },
+    { value: 'follow-up-due', label: `Seguimiento vencido (${followUpDueCount})` },
+    { value: 'all', label: 'Todos' },
+  ];
+
+  const selectClass = 'w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
+
   return (
-    <div className="space-y-6">
-      {/* Header Stats */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-          <div className="flex items-center gap-2">
-            <Phone className="h-5 w-5 text-green-600" />
-            <div>
-              <div className="text-2xl font-bold text-green-600">{businessesWithPhone}</div>
-              <div className="text-xs text-green-700">Con telefono</div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <div className="flex items-center gap-2">
-            <Send className="h-5 w-5 text-blue-600" />
-            <div>
-              <div className="text-2xl font-bold text-blue-600">{alreadySent}</div>
-              <div className="text-xs text-blue-700">Enviados</div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <div className="flex items-center gap-2">
-            <PhoneOff className="h-5 w-5 text-red-500" />
-            <div>
-              <div className="text-2xl font-bold text-red-500">{noWaCount}</div>
-              <div className="text-xs text-red-600">Sin WhatsApp</div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-slate-600" />
-            <div>
-              <div className="text-2xl font-bold text-slate-600">{pendingCount}</div>
-              <div className="text-xs text-slate-700">Pendientes</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Conversion por plantilla — que mensaje esta funcionando mejor. Las columnas de */}
-      {/* respuesta/reacciones se calculan solas a partir de las conversaciones registradas. */}
-      {Object.keys(templateStats).length > 0 && (
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      {/* ==================== SIDEBAR: filtros + configurar mensaje ==================== */}
+      <aside className="w-full flex-shrink-0 space-y-4 lg:w-72">
+        {/* Presencia web + quick filters */}
         <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-slate-700">Conversion por plantilla</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-slate-500">
-                  <th className="pb-2 pr-4">Plantilla</th>
-                  <th className="pb-2 pr-4">Enviados</th>
-                  <th className="pb-2 pr-4">Respondieron</th>
-                  <th className="pb-2 pr-4">Tiempo 1ra respuesta</th>
-                  <th className="pb-2 pr-4">Reacciones</th>
-                  <th className="pb-2 pr-4">Interesados/Clientes</th>
-                  <th className="pb-2">Descartados</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(templateStats).map(([id, s]) => {
-                  const responseRate = s.sent > 0 ? Math.round((s.responded / s.sent) * 100) : 0;
-                  return (
-                    <tr key={id} className="border-t border-slate-100">
-                      <td className="py-2 pr-4 font-medium text-slate-800">{templateName(id)}</td>
-                      <td className="py-2 pr-4">{s.sent}</td>
-                      <td className="py-2 pr-4">
-                        {s.responded} <span className="text-xs text-slate-400">({responseRate}%)</span>
-                      </td>
-                      <td className="py-2 pr-4 text-slate-600">{formatResponseTime(s.responseHours)}</td>
-                      <td className="py-2 pr-4 text-xs">
-                        {s.positiveReactions > 0 && <span className="text-green-700">👍 {s.positiveReactions}</span>}
-                        {s.positiveReactions > 0 && s.negativeReactions > 0 && ' · '}
-                        {s.negativeReactions > 0 && <span className="text-red-600">👎 {s.negativeReactions}</span>}
-                        {s.positiveReactions === 0 && s.negativeReactions === 0 && <span className="text-slate-300">—</span>}
-                      </td>
-                      <td className="py-2 pr-4 text-green-700">{s.interested}</td>
-                      <td className="py-2 text-red-600">{s.discarded}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Template Selector + Rubro Input */}
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-slate-900">Configurar mensaje</h3>
-
-        {/* Rubro input */}
-        <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Rubro (para personalizar el mensaje)
-          </label>
-          <input
-            type="text"
-            value={rubro}
-            onChange={(e) => setRubro(e.target.value)}
-            placeholder="ej: dentistas, peluquerias, abogados..."
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-
-        {/* Template selector */}
-        <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-slate-700">Plantilla de mensaje</label>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {defaultTemplates.map((template) => (
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Presencia web</h3>
+          <div className="flex flex-wrap gap-2">
+            {presenceFilters.map((f) => (
               <button
-                key={template.id}
-                onClick={() => {
-                  setSelectedTemplate(template);
-                  setIsEditing(false);
-                }}
-                className={`rounded-lg border p-3 text-left text-sm transition-all ${
-                  selectedTemplate.id === template.id && !isEditing
-                    ? 'border-green-500 bg-green-50 ring-1 ring-green-500'
-                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                  filter === f.value
+                    ? 'bg-green-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                <div className="font-medium text-slate-900">{template.name}</div>
-                <div className="mt-1 text-xs text-slate-500 line-clamp-2">{template.message.slice(0, 80)}...</div>
+                {f.label}
               </button>
             ))}
-            <button
-              onClick={() => {
-                setIsEditing(true);
-                setCustomMessage(selectedTemplate.message);
-              }}
-              className={`rounded-lg border p-3 text-left text-sm transition-all ${
-                isEditing
-                  ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
-                  : 'border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center gap-1 font-medium text-slate-900">
-                <Edit3 className="h-3 w-3" />
-                Mensaje personalizado
-              </div>
-              <div className="mt-1 text-xs text-slate-500">Edita el template a tu gusto</div>
-            </button>
           </div>
         </div>
 
-        {/* Message preview / editor */}
-        <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            {isEditing ? 'Editar mensaje' : 'Vista previa del mensaje'}
-          </label>
-          {isEditing ? (
-            <textarea
-              value={customMessage}
-              onChange={(e) => setCustomMessage(e.target.value)}
-              rows={8}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="Usa {nombre_negocio}, {problema_principal}, {rubro} como variables..."
-            />
-          ) : (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm whitespace-pre-wrap text-slate-700">
-              {selectedTemplate.message}
+        {/* Configurar mensaje — colapsado por default, no compite con la lista */}
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <button
+            onClick={() => setComposerOpen((o) => !o)}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mensaje</div>
+              <div className="text-sm font-medium text-slate-900">
+                {isEditing ? 'Mensaje personalizado' : selectedTemplate.name}
+              </div>
+            </div>
+            {composerOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+          </button>
+
+          {composerOpen && (
+            <div className="mt-4 space-y-4">
+              {/* Rubro input */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Rubro (para personalizar el mensaje)
+                </label>
+                <input
+                  type="text"
+                  value={rubro}
+                  onChange={(e) => setRubro(e.target.value)}
+                  placeholder="ej: dentistas, peluquerias, abogados..."
+                  className={selectClass}
+                />
+              </div>
+
+              {/* Template selector */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Plantilla de mensaje</label>
+                <div className="grid gap-2">
+                  {defaultTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => {
+                        setSelectedTemplate(template);
+                        setIsEditing(false);
+                      }}
+                      className={`rounded-lg border p-3 text-left text-sm transition-all ${
+                        selectedTemplate.id === template.id && !isEditing
+                          ? 'border-green-500 bg-green-50 ring-1 ring-green-500'
+                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="font-medium text-slate-900">{template.name}</div>
+                      <div className="mt-1 text-xs text-slate-500 line-clamp-2">{template.message.slice(0, 80)}...</div>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setIsEditing(true);
+                      setCustomMessage(selectedTemplate.message);
+                    }}
+                    className={`rounded-lg border p-3 text-left text-sm transition-all ${
+                      isEditing
+                        ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                        : 'border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1 font-medium text-slate-900">
+                      <Edit3 className="h-3 w-3" />
+                      Mensaje personalizado
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">Edita el template a tu gusto</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Message preview / editor */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  {isEditing ? 'Editar mensaje' : 'Vista previa del mensaje'}
+                </label>
+                {isEditing ? (
+                  <textarea
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    rows={8}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Usa {nombre_negocio}, {problema_principal}, {rubro} como variables..."
+                  />
+                ) : (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm whitespace-pre-wrap text-slate-700">
+                    {selectedTemplate.message}
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-slate-500">
+                  Variables: {'{nombre_negocio}'}, {'{problema_principal}'}, {'{rubro}'}, {'{score}'}, {'{rating}'}, {'{reviews}'}
+                </p>
+              </div>
             </div>
           )}
-          <p className="mt-1 text-xs text-slate-500">
-            Variables: {'{nombre_negocio}'}, {'{problema_principal}'}, {'{rubro}'}, {'{score}'}, {'{rating}'}, {'{reviews}'}
-          </p>
         </div>
 
-        {/* Filter */}
-        <div className="mb-3 flex flex-wrap gap-2">
-          <label className="text-sm font-medium text-slate-700 mr-2 self-center">Filtrar:</label>
-          {[
-            { value: 'with-phone' as const, label: 'Con telefono' },
-            { value: 'no-website' as const, label: `Sin web (${noWebsiteCount})` },
-            { value: 'only-social' as const, label: `Solo redes (${onlySocialCount})` },
-            { value: 'with-website' as const, label: `Con web (${withWebsiteCount})` },
-            { value: 'high-opportunity' as const, label: 'Alta oportunidad' },
-            { value: 'follow-up-due' as const, label: `Seguimiento vencido (${followUpDueCount})` },
-            { value: 'all' as const, label: 'Todos' },
-          ].map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                filter === f.value
-                  ? 'bg-green-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
+        {/* Estado / Categoria / Pais / Ciudad — dropdowns compactos en vez de filas de pills */}
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Estado</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as PipelineStatus | 'all')}
+              className={selectClass}
             >
-              {f.label}
-            </button>
-          ))}
+              <option value="all">Todos</option>
+              {PIPELINE_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {(categories.length > 0 || results.some(r => !r.business.category)) && (
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Categoria</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className={selectClass}
+              >
+                <option value="all">Todas</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c} ({results.filter(r => r.business.category === c).length})</option>
+                ))}
+                {results.some(r => !r.business.category) && (
+                  <option value="__none__">Sin categoria ({results.filter(r => !r.business.category).length})</option>
+                )}
+              </select>
+              {onUpdateBusiness && (
+                <button
+                  onClick={bulkAssignCategory}
+                  className="mt-1 text-xs text-slate-500 underline decoration-dotted hover:text-blue-700"
+                  title="Asigna una categoria a todos los negocios del filtro actual que no tengan una"
+                >
+                  + Asignar categoria a los filtrados
+                </button>
+              )}
+            </div>
+          )}
+
+          {(countries.length > 0 || results.some(r => !locationsByBusiness.get(r.business.name)?.country)) && (
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Pais</label>
+              <select
+                value={countryFilter}
+                onChange={(e) => setCountryFilter(e.target.value)}
+                className={selectClass}
+              >
+                <option value="all">Todos</option>
+                {countries.map((c) => (
+                  <option key={c} value={c}>{c} ({results.filter(r => locationsByBusiness.get(r.business.name)?.country === c).length})</option>
+                ))}
+                {results.some(r => !locationsByBusiness.get(r.business.name)?.country) && (
+                  <option value="__none__">Sin pais ({results.filter(r => !locationsByBusiness.get(r.business.name)?.country).length})</option>
+                )}
+              </select>
+            </div>
+          )}
+
+          {(cities.length > 0 || results.some(r => !locationsByBusiness.get(r.business.name)?.city)) && (
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Ciudad</label>
+              <select
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+                className={selectClass}
+              >
+                <option value="all">Todas</option>
+                {cities.map((c) => (
+                  <option key={c} value={c}>{c} ({results.filter(r => locationsByBusiness.get(r.business.name)?.city === c).length})</option>
+                ))}
+                {results.some(r => !locationsByBusiness.get(r.business.name)?.city) && (
+                  <option value="__none__">Sin ciudad ({results.filter(r => !locationsByBusiness.get(r.business.name)?.city).length})</option>
+                )}
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* Status Filter */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          <label className="text-sm font-medium text-slate-700 mr-2 self-center">Estado:</label>
+        {/* Metricas — stats + conversion por plantilla, colapsado por default */}
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
           <button
-            onClick={() => setStatusFilter('all')}
-            className={`rounded-full px-3 py-1 text-sm transition-colors ${
-              statusFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
+            onClick={() => setMetricsOpen((o) => !o)}
+            className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
           >
-            Todos
+            Metricas
+            {metricsOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
           </button>
-          {PIPELINE_STATUSES.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => setStatusFilter(s.value)}
-              className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                statusFilter === s.value ? 'ring-1 ring-slate-400 ' + s.color : s.color + ' opacity-60 hover:opacity-100'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
+
+          {metricsOpen && (
+            <div className="mt-3 space-y-4">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg border border-green-200 bg-green-50 p-2">
+                  <div className="text-lg font-bold text-green-600">{businessesWithPhone}</div>
+                  <div className="text-xs text-green-700">Con telefono</div>
+                </div>
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-2">
+                  <div className="text-lg font-bold text-blue-600">{alreadySent}</div>
+                  <div className="text-xs text-blue-700">Enviados</div>
+                </div>
+                <div className="rounded-lg border border-red-200 bg-red-50 p-2">
+                  <div className="text-lg font-bold text-red-500">{noWaCount}</div>
+                  <div className="text-xs text-red-600">Sin WhatsApp</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  <div className="text-lg font-bold text-slate-600">{pendingCount}</div>
+                  <div className="text-xs text-slate-700">Pendientes</div>
+                </div>
+              </div>
+
+              {Object.keys(templateStats).length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-xs font-semibold text-slate-600">Conversion por plantilla</h4>
+                  <div className="space-y-2">
+                    {Object.entries(templateStats).map(([id, s]) => {
+                      const responseRate = s.sent > 0 ? Math.round((s.responded / s.sent) * 100) : 0;
+                      return (
+                        <div key={id} className="rounded-lg border border-slate-100 p-2 text-xs">
+                          <div className="font-medium text-slate-800">{templateName(id)}</div>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-slate-500">
+                            <span>Enviados: {s.sent}</span>
+                            <span>Respondieron: {s.responded} ({responseRate}%)</span>
+                            <span>1ra respuesta: {formatResponseTime(s.responseHours)}</span>
+                            <span className="text-green-700">Interesados: {s.interested}</span>
+                            <span className="text-red-600">Descartados: {s.discarded}</span>
+                            {(s.positiveReactions > 0 || s.negativeReactions > 0) && (
+                              <span>
+                                {s.positiveReactions > 0 && <span className="text-green-700">👍 {s.positiveReactions}</span>}
+                                {s.positiveReactions > 0 && s.negativeReactions > 0 && ' · '}
+                                {s.negativeReactions > 0 && <span className="text-red-600">👎 {s.negativeReactions}</span>}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+      </aside>
 
-        {/* Category Filter — separa los contactos por tipo de negocio (peluquerias, inmobiliarias, etc.) */}
-        {(categories.length > 0 || results.some(r => !r.business.category)) && (
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <label className="text-sm font-medium text-slate-700 mr-2 self-center">Categoria:</label>
-            <button
-              onClick={() => setCategoryFilter('all')}
-              className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                categoryFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Todas
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategoryFilter(c)}
-                className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                  categoryFilter === c ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                }`}
-              >
-                {c} ({results.filter(r => r.business.category === c).length})
-              </button>
-            ))}
-            {results.some(r => !r.business.category) && (
-              <button
-                onClick={() => setCategoryFilter('__none__')}
-                className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                  categoryFilter === '__none__' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Sin categoria ({results.filter(r => !r.business.category).length})
-              </button>
-            )}
-            {onUpdateBusiness && (
-              <button
-                onClick={bulkAssignCategory}
-                className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-sm text-slate-600 hover:border-blue-400 hover:text-blue-700"
-                title="Asigna una categoria a todos los negocios del filtro actual que no tengan una"
-              >
-                + Asignar categoria a los filtrados
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Country Filter — util para separar leads de distintos paises (ej: Argentina vs España) */}
-        {(countries.length > 0 || results.some(r => !locationsByBusiness.get(r.business.name)?.country)) && (
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <label className="text-sm font-medium text-slate-700 mr-2 self-center">Pais:</label>
-            <button
-              onClick={() => setCountryFilter('all')}
-              className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                countryFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Todos
-            </button>
-            {countries.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCountryFilter(c)}
-                className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                  countryFilter === c ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-                }`}
-              >
-                {c} ({results.filter(r => locationsByBusiness.get(r.business.name)?.country === c).length})
-              </button>
-            ))}
-            {results.some(r => !locationsByBusiness.get(r.business.name)?.country) && (
-              <button
-                onClick={() => setCountryFilter('__none__')}
-                className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                  countryFilter === '__none__' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Sin pais ({results.filter(r => !locationsByBusiness.get(r.business.name)?.country).length})
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* City Filter — se acota automaticamente a las ciudades del pais elegido arriba */}
-        {(cities.length > 0 || results.some(r => !locationsByBusiness.get(r.business.name)?.city)) && (
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <label className="text-sm font-medium text-slate-700 mr-2 self-center">Ciudad:</label>
-            <button
-              onClick={() => setCityFilter('all')}
-              className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                cityFilter === 'all' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Todas
-            </button>
-            {cities.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCityFilter(c)}
-                className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                  cityFilter === c ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
-                }`}
-              >
-                {c} ({results.filter(r => locationsByBusiness.get(r.business.name)?.city === c).length})
-              </button>
-            ))}
-            {results.some(r => !locationsByBusiness.get(r.business.name)?.city) && (
-              <button
-                onClick={() => setCityFilter('__none__')}
-                className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                  cityFilter === '__none__' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Sin ciudad ({results.filter(r => !locationsByBusiness.get(r.business.name)?.city).length})
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Business List */}
-      <div className="mb-3">
+      {/* ==================== COLUMNA PRINCIPAL: lista de contactos ==================== */}
+      <div className="min-w-0 flex-1 space-y-4">
         <input
           type="text"
           value={searchQuery}
@@ -854,8 +801,6 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
           placeholder="Buscar por nombre o telefono..."
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
-      </div>
-      <div className="space-y-3">
         {filteredBusinesses.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
             <MessageCircle className="mx-auto mb-3 h-10 w-10 text-slate-400" />
@@ -970,54 +915,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Expand/Collapse */}
-                    <button
-                      onClick={() => setExpandedBusiness(isExpanded ? null : result.business.name)}
-                      className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                      title="Ver mensaje"
-                    >
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </button>
-
-                    {/* Copy */}
-                    <button
-                      onClick={() => copyMessage(result)}
-                      className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                      title="Copiar mensaje"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-
-                    {/* Analizar / re-analizar este negocio puntual */}
-                    {onAnalysisUpdate && result.business.website && !result.business.onlySocial && (
-                      <button
-                        onClick={() => analyzeBusiness(result.business)}
-                        disabled={analyzingNames.has(result.business.name)}
-                        className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                        title={result.analysis ? 'Re-analizar sitio' : 'Analizar sitio'}
-                      >
-                        {analyzingNames.has(result.business.name) ? (
-                          <Loader className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </button>
-                    )}
-
-                    {/* Mark sent / unsent */}
-                    <button
-                      onClick={() => toggleSent(result)}
-                      className={`rounded-lg border p-2 text-sm transition-colors ${
-                        isSent
-                          ? 'border-green-300 bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'border-slate-200 text-slate-400 hover:bg-green-50 hover:text-green-600'
-                      }`}
-                      title={isSent ? 'Desmarcar como enviado' : 'Marcar como enviado'}
-                    >
-                      <Check className="h-4 w-4" />
-                    </button>
-
-                    {/* Conversacion registrada */}
+                    {/* Conversacion registrada — se usa seguido para registrar respuestas, queda visible */}
                     {onUpdateBusiness && (
                       <button
                         onClick={() => openConversation(result)}
@@ -1037,17 +935,17 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
                       </button>
                     )}
 
-                    {/* Mark no WhatsApp */}
+                    {/* Mark sent / unsent */}
                     <button
-                      onClick={() => toggleNoWhatsApp(result.business.name)}
+                      onClick={() => toggleSent(result)}
                       className={`rounded-lg border p-2 text-sm transition-colors ${
-                        isNoWa
-                          ? 'border-red-300 bg-red-100 text-red-600 hover:bg-red-200'
-                          : 'border-slate-200 text-slate-400 hover:bg-red-50 hover:text-red-500'
+                        isSent
+                          ? 'border-green-300 bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'border-slate-200 text-slate-400 hover:bg-green-50 hover:text-green-600'
                       }`}
-                      title={isNoWa ? 'Desmarcar "no tiene WA"' : 'Marcar como "no tiene WA"'}
+                      title={isSent ? 'Desmarcar como enviado' : 'Marcar como enviado'}
                     >
-                      <PhoneOff className="h-4 w-4" />
+                      <Check className="h-4 w-4" />
                     </button>
 
                     {/* Send WhatsApp */}
@@ -1067,16 +965,68 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
                       </span>
                     )}
 
-                    {/* Remove */}
-                    {onRemove && (
+                    {/* Mas acciones: ver/copiar mensaje, analizar sitio, marcar sin WA, eliminar */}
+                    <div className="relative">
                       <button
-                        onClick={() => onRemove(result.business.name)}
-                        className="rounded-lg border border-slate-200 p-2 text-slate-400 hover:bg-red-50 hover:text-red-500"
-                        title="Eliminar"
+                        onClick={() => setMenuOpenFor(menuOpenFor === result.business.name ? null : result.business.name)}
+                        className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+                        title="Mas acciones"
                       >
-                        <X className="h-4 w-4" />
+                        <MoreHorizontal className="h-4 w-4" />
                       </button>
-                    )}
+
+                      {menuOpenFor === result.business.name && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setMenuOpenFor(null)} />
+                          <div className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                            <button
+                              onClick={() => { setExpandedBusiness(isExpanded ? null : result.business.name); setMenuOpenFor(null); }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                            >
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              {isExpanded ? 'Ocultar mensaje' : 'Ver mensaje'}
+                            </button>
+                            <button
+                              onClick={() => { copyMessage(result); setMenuOpenFor(null); }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                            >
+                              <Copy className="h-4 w-4" />
+                              Copiar mensaje
+                            </button>
+                            {onAnalysisUpdate && result.business.website && !result.business.onlySocial && (
+                              <button
+                                onClick={() => { analyzeBusiness(result.business); setMenuOpenFor(null); }}
+                                disabled={analyzingNames.has(result.business.name)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                              >
+                                {analyzingNames.has(result.business.name) ? (
+                                  <Loader className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4" />
+                                )}
+                                {result.analysis ? 'Re-analizar sitio' : 'Analizar sitio'}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { toggleNoWhatsApp(result.business.name); setMenuOpenFor(null); }}
+                              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 ${isNoWa ? 'text-red-600' : 'text-slate-700'}`}
+                            >
+                              <PhoneOff className="h-4 w-4" />
+                              {isNoWa ? 'Desmarcar "no tiene WA"' : 'Marcar "no tiene WA"'}
+                            </button>
+                            {onRemove && (
+                              <button
+                                onClick={() => { onRemove(result.business.name); setMenuOpenFor(null); }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                              >
+                                <X className="h-4 w-4" />
+                                Eliminar
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 

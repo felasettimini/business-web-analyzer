@@ -365,24 +365,24 @@ export default function Home() {
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     {
       id: 'search',
-      label: 'Google Maps',
+      label: '1. Buscar',
       icon: <MapPin className="mr-1.5 inline h-4 w-4" />,
     },
     {
       id: 'input',
-      label: 'Mis Negocios',
+      label: '2. Mis Negocios',
       icon: <Upload className="mr-1.5 inline h-4 w-4" />,
       badge: businesses.length || undefined,
     },
     {
       id: 'results',
-      label: 'Analisis',
+      label: '3. Analisis',
       icon: <BarChart3 className="mr-1.5 inline h-4 w-4" />,
       badge: results.length || undefined,
     },
     {
       id: 'whatsapp',
-      label: 'WhatsApp',
+      label: '4. WhatsApp',
       icon: <MessageCircle className="mr-1.5 inline h-4 w-4" />,
       badge: results.filter(r => r.business.phone).length || undefined,
     },
