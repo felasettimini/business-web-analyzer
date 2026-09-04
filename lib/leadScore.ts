@@ -30,7 +30,15 @@ export function calculateLeadScore(business: Business, analysis?: WebsiteAnalysi
     opportunityScore = 50; // tiene web pero todavia no se analizo
   }
 
-  const leadScore = businessQuality * 0.4 + opportunityScore * 0.6;
+  let leadScore = businessQuality * 0.4 + opportunityScore * 0.6;
+
+  // Si el sitio ya esta bien armado (opportunity 'low', y no bloquea la indexacion),
+  // no tiene sentido venderle nada — no importa que tan grande/establecido sea el
+  // negocio, tope el score para que caiga siempre en "Lead bajo".
+  if (analysis && analysis.opportunity === 'low' && !analysis.indexingBlocked) {
+    leadScore = Math.min(leadScore, 34);
+  }
+
   return Math.round(Math.max(0, Math.min(100, leadScore)));
 }
 
