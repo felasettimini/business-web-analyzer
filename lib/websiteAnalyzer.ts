@@ -1,7 +1,15 @@
 import axios from 'axios';
-import puppeteer, { Browser } from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import type { Browser } from 'puppeteer';
 import * as cheerio from 'cheerio';
 import { WebsiteAnalysis } from './types';
+
+// Sin esto, Chromium se identifica como "HeadlessChrome" y con navigator.webdriver=true,
+// asi que cualquier WAF/CDN medianamente decente (Cloudflare, nginx, etc.) lo banea con
+// un 403 antes de servir la pagina real — y esa pagina de error vacia es lo que se
+// terminaba analizando (y puntuando mal) en vez del sitio de verdad.
+puppeteer.use(StealthPlugin());
 
 // Browser compartido entre requests (el flujo de analisis procesa negocios uno por uno
 // en secuencia — sin esto cada sitio pagaria el costo de arrancar Chromium desde cero).
@@ -70,6 +78,14 @@ export async function analyzeWebsite(url: string, businessName: string): Promise
 
     const response = await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
     const loadTime = Date.now() - startTime;
+
+    // Si el sitio devuelve un error (403/404/5xx, tipico de un bloqueo anti-bot que la
+    // extension stealth no logro esquivar), NO seguir analizando esa pagina de error
+    // como si fuera el sitio real — eso es lo que generaba scores bajos falsos.
+    const status = response?.status() ?? 0;
+    if (status >= 400) {
+      throw new Error(`El sitio devolvio un error (HTTP ${status}) al intentar analizarlo — puede estar bloqueando accesos automatizados`);
+    }
 
     const html = await page.content();
     const responseHeaders = response?.headers() || {};
