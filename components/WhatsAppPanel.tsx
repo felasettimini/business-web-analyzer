@@ -55,7 +55,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
     }
   });
   const [waLoaded, setWaLoaded] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'with-phone' | 'high-opportunity' | 'follow-up-due'>('with-phone');
+  const [filter, setFilter] = useState<'all' | 'with-phone' | 'high-opportunity' | 'follow-up-due' | 'no-website'>('with-phone');
   const [statusFilter, setStatusFilter] = useState<PipelineStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
@@ -152,6 +152,9 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
       filtered = filtered.filter(r => r.business.phone && calculateLeadScore(r.business, r.analysis) >= 55);
     } else if (filter === 'follow-up-due') {
       filtered = filtered.filter(r => r.business.phone && isFollowUpDue(r.business.nextFollowUpAt));
+    } else if (filter === 'no-website') {
+      // Directamente sin web propia — ni siquiera redes sociales como presencia online.
+      filtered = filtered.filter(r => r.business.phone && !r.business.hasWebsite && !r.business.onlySocial);
     }
 
     if (statusFilter !== 'all') {
@@ -408,6 +411,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
   const noWaCount = filteredBusinesses.filter(r => noWhatsApp.has(r.business.name)).length;
   const pendingCount = businessesWithPhone - alreadySent - noWaCount;
   const followUpDueCount = results.filter(r => r.business.phone && isFollowUpDue(r.business.nextFollowUpAt)).length;
+  const noWebsiteCount = results.filter(r => r.business.phone && !r.business.hasWebsite && !r.business.onlySocial).length;
 
   // Conversaciones pegadas a mano (de antes de que existiera este registro) no tienen
   // lastTemplateId guardado. Para no perderlas del analisis, se detecta la plantilla
@@ -672,6 +676,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
           <label className="text-sm font-medium text-slate-700 mr-2 self-center">Filtrar:</label>
           {[
             { value: 'with-phone' as const, label: 'Con telefono' },
+            { value: 'no-website' as const, label: `Sin web (${noWebsiteCount})` },
             { value: 'high-opportunity' as const, label: 'Alta oportunidad' },
             { value: 'follow-up-due' as const, label: `Seguimiento vencido (${followUpDueCount})` },
             { value: 'all' as const, label: 'Todos' },
