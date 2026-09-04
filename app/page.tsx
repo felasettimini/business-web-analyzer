@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, Save, StickyNote, Camera, Pencil } from 'lucide-react';
+import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, StickyNote, Camera, Pencil } from 'lucide-react';
 import { AnalysisResult, Business, PipelineStatus, WebsiteAnalysis } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta, promptDiscardReason, shouldAutoDiscard } from '@/lib/pipeline';
 import { calculateLeadScore, webPresencePriority } from '@/lib/leadScore';
@@ -53,7 +53,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('search');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [loaded, setLoaded] = useState(false);
-  const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [capturingAll, setCapturingAll] = useState(false);
   const [captureProgress, setCaptureProgress] = useState({ current: 0, total: 0 });
   const [businessCategoryFilter, setBusinessCategoryFilter] = useState<string>('all');
@@ -103,11 +102,7 @@ export default function Home() {
       // localStorage full or unavailable
     }
     const timeout = setTimeout(() => {
-      saveAppState({ businesses, results }).then(() => {
-        if (businesses.length > 0 || results.length > 0) {
-          setLastSaved(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }));
-        }
-      });
+      saveAppState({ businesses, results });
     }, 800);
     return () => clearTimeout(timeout);
   }, [businesses, results, loaded]);
@@ -390,54 +385,34 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      {/* Header */}
+      {/* Header — la barra de tabs hace de header, no hace falta nada mas arriba */}
       <header className="border-b border-blue-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-4 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-blue-900 sm:text-3xl">Business Web Analyzer</h1>
-              <p className="text-sm text-slate-600">
-                Busca negocios → Analiza sus webs → Contactalos por WhatsApp
-              </p>
-            </div>
-            <div className="hidden sm:block text-right text-xs text-slate-500">
-              <div>{businesses.length} negocios cargados</div>
-              <div>{results.length} analizados</div>
-              {lastSaved && (
-                <div className="flex items-center justify-end gap-1 text-green-600 mt-1">
-                  <Save className="h-3 w-3" />
-                  Guardado {lastSaved}
-                </div>
-              )}
-            </div>
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="flex gap-1 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative whitespace-nowrap px-4 py-3.5 text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+                {tab.badge && (
+                  <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-semibold text-blue-700">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
-        {/* Tabs */}
-        <div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {tab.icon}
-              {tab.label}
-              {tab.badge && (
-                <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-semibold text-blue-700">
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
         {/* ==================== SEARCH TAB ==================== */}
         {activeTab === 'search' && (
           <GoogleMapsSearch
@@ -693,7 +668,6 @@ export default function Home() {
                         localStorage.removeItem(STORAGE_KEYS.results);
                         localStorage.removeItem(STORAGE_KEYS.sentMessages);
                         saveAppState({ businesses: [], results: [] });
-                        setLastSaved(null);
                       }
                     }}
                     className="rounded-lg border border-red-300 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"

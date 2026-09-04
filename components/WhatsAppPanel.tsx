@@ -65,6 +65,9 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
   const [composerOpen, setComposerOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'board'>('list');
+  const [draggingName, setDraggingName] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<PipelineStatus | null>(null);
 
   // Categorias presentes entre los negocios cargados (peluquerias, inmobiliarias, etc.)
   const categories = useMemo(
@@ -145,8 +148,10 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
     });
   }, [results, sentMessages, onUpdateBusiness]);
 
-  // Filter businesses that have phone numbers
-  const filteredBusinesses = useMemo(() => {
+  // Filtros que aplican tanto en la vista de lista como en el tablero: presencia web,
+  // categoria, ubicacion y busqueda. El estado (pipeline) se aplica aparte — en la lista
+  // como un filtro mas, en el tablero como las columnas mismas (no tiene sentido filtrarlo ahi).
+  const baseFilteredBusinesses = useMemo(() => {
     let filtered = results;
 
     if (filter === 'with-phone') {
@@ -162,16 +167,6 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
       filtered = filtered.filter(r => r.business.phone && r.business.onlySocial);
     } else if (filter === 'with-website') {
       filtered = filtered.filter(r => r.business.phone && r.business.hasWebsite && !r.business.onlySocial);
-    }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(r => (r.business.status || 'nuevo') === statusFilter);
-    } else {
-      // Por default no mostramos los descartados como candidatos para escribir:
-      // siguen guardados (no se borran) para no volver a agregarlos sin querer
-      // si se vuelve a scrapear la zona, pero no aparecen para contactar salvo
-      // que se elija explicitamente el filtro "Descartado".
-      filtered = filtered.filter(r => (r.business.status || 'nuevo') !== 'descartado');
     }
 
     if (categoryFilter === '__none__') {
@@ -201,6 +196,22 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
       );
     }
 
+    return filtered;
+  }, [results, filter, categoryFilter, countryFilter, cityFilter, locationsByBusiness, searchQuery]);
+
+  const filteredBusinesses = useMemo(() => {
+    let filtered = baseFilteredBusinesses;
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(r => (r.business.status || 'nuevo') === statusFilter);
+    } else {
+      // Por default no mostramos los descartados como candidatos para escribir:
+      // siguen guardados (no se borran) para no volver a agregarlos sin querer
+      // si se vuelve a scrapear la zona, pero no aparecen para contactar salvo
+      // que se elija explicitamente el filtro "Descartado".
+      filtered = filtered.filter(r => (r.business.status || 'nuevo') !== 'descartado');
+    }
+
     // Orden: primero pendientes, despues ya enviados, y al final del todo los que no tienen WhatsApp.
     // Dentro de cada grupo: con el filtro "Alta oportunidad" activo, de mayor a menor lead score
     // (para atacar primero los mejores); en el resto de los filtros, alfabetico para ubicar facil.
@@ -215,7 +226,22 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
       }
       return a.business.name.localeCompare(b.business.name, 'es', { sensitivity: 'base' });
     });
-  }, [results, filter, statusFilter, categoryFilter, countryFilter, cityFilter, locationsByBusiness, searchQuery, sentMessages, noWhatsApp]);
+  }, [baseFilteredBusinesses, statusFilter, filter, sentMessages, noWhatsApp]);
+
+  // Tablero tipo Trello: mismos filtros de arriba, pero agrupado por estado en vez de
+  // filtrado por estado — ahi es donde tiene sentido ver los descartados tambien (es
+  // una columna mas, no algo que se esconde).
+  const boardColumns = useMemo(() => {
+    const columns = new Map<PipelineStatus, AnalysisResult[]>(PIPELINE_STATUSES.map(s => [s.value, []]));
+    for (const r of baseFilteredBusinesses) {
+      const status = r.business.status || 'nuevo';
+      columns.get(status)?.push(r);
+    }
+    for (const list of columns.values()) {
+      list.sort((a, b) => calculateLeadScore(b.business, b.analysis) - calculateLeadScore(a.business, a.analysis));
+    }
+    return columns;
+  }, [baseFilteredBusinesses]);
 
   // Asigna una categoria a todos los negocios que esten pasando el filtro actual y no tengan una todavia.
   // Pensado para etiquetar de una sola vez un lote entero (ej: las 53 peluquerias ya cargadas).
@@ -800,14 +826,125 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
 
       {/* ==================== COLUMNA PRINCIPAL: lista de contactos ==================== */}
       <div className="min-w-0 flex-1 space-y-4">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar por nombre o telefono..."
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        {filteredBusinesses.length === 0 ? (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por nombre o telefono..."
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <div className="flex flex-shrink-0 overflow-hidden rounded-lg border border-slate-300">
+            <button
+              onClick={() => setView('list')}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
+                view === 'list' ? 'bg-slate-700 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+              title="Vista de lista"
+            >
+              Lista
+            </button>
+            <button
+              onClick={() => setView('board')}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
+                view === 'board' ? 'bg-slate-700 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+              title="Vista de tablero, arrastra las tarjetas para cambiar el estado"
+            >
+              Tablero
+            </button>
+          </div>
+        </div>
+
+        {view === 'board' ? (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {PIPELINE_STATUSES.map((col) => {
+              const items = boardColumns.get(col.value) || [];
+              return (
+                <div
+                  key={col.value}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverColumn(col.value); }}
+                  onDragLeave={() => setDragOverColumn((prev) => (prev === col.value ? null : prev))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const name = e.dataTransfer.getData('text/plain');
+                    setDragOverColumn(null);
+                    setDraggingName(null);
+                    if (name) handleStatusChange(name, col.value);
+                  }}
+                  className={`w-64 flex-shrink-0 rounded-lg border bg-slate-50/50 p-2 transition-colors ${
+                    dragOverColumn === col.value ? 'border-blue-400 bg-blue-50' : 'border-slate-200'
+                  }`}
+                >
+                  <div className="mb-2 flex items-center gap-2 px-1">
+                    <span className={`h-2 w-2 rounded-full ${col.dot}`} />
+                    <h4 className="text-sm font-semibold text-slate-700">{col.label}</h4>
+                    <span className="ml-auto text-xs text-slate-400">{items.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {items.map((result) => {
+                      const score = calculateLeadScore(result.business, result.analysis);
+                      const meta = leadScoreLabel(score);
+                      const link = getWhatsAppLink(result);
+                      return (
+                        <div
+                          key={result.business.name}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', result.business.name);
+                            e.dataTransfer.effectAllowed = 'move';
+                            setDraggingName(result.business.name);
+                          }}
+                          onDragEnd={() => { setDraggingName(null); setDragOverColumn(null); }}
+                          className={`cursor-grab rounded-lg border border-slate-200 bg-white p-2.5 text-sm shadow-sm active:cursor-grabbing ${
+                            draggingName === result.business.name ? 'opacity-40' : ''
+                          }`}
+                        >
+                          <div className="font-medium text-slate-900 line-clamp-2">{result.business.name}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${meta.color}`}>
+                              {score} · {meta.label}
+                            </span>
+                            {result.business.category && (
+                              <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
+                                {result.business.category}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1.5 flex items-center justify-between gap-2">
+                            {result.business.phone ? (
+                              <span className="flex items-center gap-1 text-xs text-slate-500">
+                                <Phone className="h-3 w-3" />
+                                {result.business.phone}
+                              </span>
+                            ) : <span />}
+                            {link && (
+                              <a
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded p-1 text-green-600 hover:bg-green-50"
+                                title="Enviar WhatsApp"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {items.length === 0 && (
+                      <div className="rounded-lg border border-dashed border-slate-200 p-3 text-center text-xs text-slate-400">
+                        Sin negocios
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : filteredBusinesses.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
             <MessageCircle className="mx-auto mb-3 h-10 w-10 text-slate-400" />
             <p className="text-slate-600">No hay negocios que coincidan con el filtro</p>
