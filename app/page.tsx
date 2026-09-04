@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, StickyNote, Camera, Pencil } from 'lucide-react';
+import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, StickyNote, Camera, Pencil, Sun, Moon } from 'lucide-react';
 import { AnalysisResult, Business, PipelineStatus, WebsiteAnalysis } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta, promptDiscardReason, shouldAutoDiscard } from '@/lib/pipeline';
 import { calculateLeadScore, webPresencePriority } from '@/lib/leadScore';
@@ -46,7 +46,29 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
+const THEME_STORAGE_KEY = 'bwa_theme';
+
 export default function Home() {
+  // Tema claro/oscuro: se guarda en localStorage (preferencia del dispositivo,
+  // no hace falta sincronizarla via Supabase). Arranca en 'light' en el server
+  // para que el markup coincida con el cliente antes de hidratar, y recien en
+  // el useEffect de abajo se ajusta a lo guardado (o a la preferencia del SO
+  // si es la primera vez).
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(THEME_STORAGE_KEY) : null;
+    const initial = saved === 'dark' || saved === 'light'
+      ? saved
+      : (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    setTheme(initial);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
@@ -391,7 +413,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Header — la barra de tabs hace de header, no hace falta nada mas arriba */}
       <header className="border-b border-blue-200 bg-white/80 backdrop-blur">
-        <div className={`px-4 ${containerMaxWidth}`}>
+        <div className={`flex items-center justify-between px-4 ${containerMaxWidth}`}>
           <div className="flex gap-1 overflow-x-auto">
             {tabs.map((tab) => (
               <button
@@ -413,6 +435,13 @@ export default function Home() {
               </button>
             ))}
           </div>
+          <button
+            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            className="flex-shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+            title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
         </div>
       </header>
 
