@@ -68,6 +68,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
   const [view, setView] = useState<'list' | 'board'>('list');
   const [draggingName, setDraggingName] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<PipelineStatus | null>(null);
+  const [selectedBusinessName, setSelectedBusinessName] = useState<string | null>(null);
 
   // Categorias presentes entre los negocios cargados (peluquerias, inmobiliarias, etc.)
   const categories = useMemo(
@@ -896,7 +897,8 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
                             setDraggingName(result.business.name);
                           }}
                           onDragEnd={() => { setDraggingName(null); setDragOverColumn(null); }}
-                          className={`cursor-grab rounded-lg border border-slate-200 bg-white p-2.5 text-sm shadow-sm active:cursor-grabbing ${
+                          onClick={() => setSelectedBusinessName(result.business.name)}
+                          className={`cursor-grab rounded-lg border border-slate-200 bg-white p-2.5 text-sm shadow-sm hover:border-blue-300 active:cursor-grabbing ${
                             draggingName === result.business.name ? 'opacity-40' : ''
                           }`}
                         >
@@ -951,7 +953,43 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
             <p className="mt-1 text-sm text-slate-500">Cambia el filtro o analiza mas negocios</p>
           </div>
         ) : (
-          filteredBusinesses.map((result, index) => {
+          filteredBusinesses.map((result, index) => renderContactCard(result, index))
+        )}
+      </div>
+
+      {/* Detalle de un negocio abierto desde el tablero — mismas acciones que en la lista */}
+      {selectedBusinessName && (() => {
+        const selected = results.find(r => r.business.name === selectedBusinessName);
+        if (!selected) return null;
+        return (
+          <div
+            className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8"
+            onClick={() => setSelectedBusinessName(null)}
+          >
+            <div
+              className="w-full max-w-2xl rounded-lg bg-white p-1 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-end p-2 pb-0">
+                <button
+                  onClick={() => setSelectedBusinessName(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  title="Cerrar"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-3 pt-1">{renderContactCard(selected, 0)}</div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+
+  // Renderiza una tarjeta/fila de un negocio con todas sus acciones (mensaje, conversacion,
+  // analizar sitio, etc.) — la usan tanto la vista de lista como el modal de detalle del tablero.
+  function renderContactCard(result: AnalysisResult, index: number) {
             const link = getWhatsAppLink(result);
             const isSent = sentMessages.has(result.business.name);
             const isNoWa = noWhatsApp.has(result.business.name);
@@ -1310,9 +1348,5 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
                 )}
               </div>
             );
-          })
-        )}
-      </div>
-    </div>
-  );
+  }
 }
