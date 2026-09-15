@@ -356,6 +356,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
   const handleStatusChange = (name: string, newStatus: PipelineStatus) => {
     if (!onUpdateBusiness) return;
     const updates: Partial<Business> = { status: newStatus };
+    updates.manualStatusOverride = newStatus !== 'descartado';
     if (newStatus === 'descartado') {
       updates.discardReason = promptDiscardReason();
       updates.nextFollowUpAt = undefined;

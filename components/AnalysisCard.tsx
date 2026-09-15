@@ -106,6 +106,7 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
   const handleStatusChange = (newStatus: PipelineStatus) => {
     if (!onUpdateBusiness) return;
     const updates: Partial<Business> = { status: newStatus };
+    updates.manualStatusOverride = newStatus !== 'descartado';
     if (newStatus === 'descartado') {
       updates.discardReason = promptDiscardReason();
       updates.nextFollowUpAt = undefined;

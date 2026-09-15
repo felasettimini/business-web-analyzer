@@ -301,7 +301,7 @@ export default function Home() {
   useEffect(() => {
     if (!loaded) return;
     businesses.forEach((b) => {
-      if (b.status === 'descartado' || b.status === 'interesado' || b.status === 'cliente') return;
+      if (b.status === 'descartado' || b.status === 'interesado' || b.status === 'cliente' || b.manualStatusOverride) return;
       if (shouldAutoDiscard(b)) {
         updateBusiness(b.name, { status: 'descartado', discardReason: 'no-contesto', nextFollowUpAt: undefined });
       }
@@ -311,6 +311,7 @@ export default function Home() {
 
   const handleStatusChange = (name: string, newStatus: PipelineStatus) => {
     const updates: Partial<Business> = { status: newStatus };
+    updates.manualStatusOverride = newStatus !== 'descartado';
     if (newStatus === 'descartado') {
       updates.discardReason = promptDiscardReason();
       updates.nextFollowUpAt = undefined;

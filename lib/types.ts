@@ -34,6 +34,7 @@ export interface Business {
   lastTemplateId?: string;       // plantilla usada en el ultimo envio, para medir que mensaje convierte mejor
   category?: string;             // tipo de negocio (peluquerias, inmobiliarias, etc.), para segmentar contactos
   conversationLog?: ConversationEntry[]; // registro de la conversacion de whatsapp, para analizar que funciona
+  manualStatusOverride?: boolean; // true cuando el usuario cambio el estado a mano — bloquea el auto-descarte
 }
 
 export interface WebsiteAnalysis {
