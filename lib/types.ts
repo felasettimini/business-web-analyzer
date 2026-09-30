@@ -35,6 +35,13 @@ export interface Business {
   category?: string;             // tipo de negocio (peluquerias, inmobiliarias, etc.), para segmentar contactos
   conversationLog?: ConversationEntry[]; // registro de la conversacion de whatsapp, para analizar que funciona
   manualStatusOverride?: boolean; // true cuando el usuario cambio el estado a mano — bloquea el auto-descarte
+  primaryType?: string;           // tipo principal segun Google Places (dentist, medical_clinic, etc.)
+  reviewSamples?: ReviewSample[]; // hasta 5 reseñas de Google, para detectar quejas operativas (turnos, atencion, cobros)
+}
+
+export interface ReviewSample {
+  rating?: number;
+  text: string;
 }
 
 export interface WebsiteAnalysis {
@@ -59,6 +66,9 @@ export interface WebsiteAnalysis {
   designAge: 'modern' | 'outdated' | 'very_outdated';
   opportunity: 'high' | 'medium' | 'low';
   indexingBlocked: boolean; // noindex/robots.txt detectado — invisible en Google aunque cargue bien
+  // Opcionales: los analisis guardados antes de agregar el score de sistemas no los tienen
+  hasOnlineBooking?: boolean; // turnos/reservas online (propio o Doctoralia, AgendaPro, etc.)
+  hasLoginArea?: boolean;     // area de usuarios/profesionales/pacientes — posible sistema viejo a reemplazar
 }
 
 export interface AnalysisResult {

@@ -25,6 +25,18 @@ const SUGGESTED_SEARCHES = [
   { query: 'inmobiliarias Rosario', icon: '🏠', category: 'Inmobiliarias' },
 ];
 
+// Perfil "tipo Cristal Smile": centros con varios profesionales y turnos/pacientes
+// manejados a mano. Se buscan con reseñas para detectar quejas operativas.
+const SYSTEMS_SEARCHES = [
+  { query: 'clinicas odontologicas Rosario', icon: '🦷', category: 'Clinicas odontologicas' },
+  { query: 'ortodoncia Rosario', icon: '😁', category: 'Ortodoncia' },
+  { query: 'centros medicos Rosario', icon: '🏥', category: 'Centros medicos' },
+  { query: 'centros de kinesiologia Rosario', icon: '🦴', category: 'Kinesiologia' },
+  { query: 'centros de estetica Rosario', icon: '💆', category: 'Centros de estetica' },
+  { query: 'laboratorios de analisis clinicos Rosario', icon: '🧪', category: 'Laboratorios' },
+  { query: 'clinicas veterinarias Rosario', icon: '🐾', category: 'Clinicas veterinarias' },
+];
+
 export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesses }: Props) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
@@ -35,9 +47,13 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [loadAllProgress, setLoadAllProgress] = useState(0);
+  const [withReviews, setWithReviews] = useState(false);
 
-  const searchGoogleMaps = async (searchQuery?: string, pageToken?: string) => {
+  // reviewsOverride: el estado de withReviews no se actualiza a tiempo cuando un boton lo
+  // prende y busca en el mismo click
+  const searchGoogleMaps = async (searchQuery?: string, pageToken?: string, reviewsOverride?: boolean) => {
     const q = searchQuery || query;
+    const includeReviews = reviewsOverride ?? withReviews;
     if (!q.trim()) return;
 
     setSearching(true);
@@ -47,7 +63,7 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
       const response = await fetch('/api/google-places', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, pageToken }),
+        body: JSON.stringify({ query: q, pageToken, withReviews: includeReviews }),
       });
 
       const data = await response.json();
@@ -94,7 +110,7 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
         const res = await fetch('/api/google-places', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, pageToken: currentToken }),
+          body: JSON.stringify({ query, pageToken: currentToken, withReviews }),
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,6 +241,16 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
           />
         </div>
 
+        {/* Reseñas: necesarias para el score de "Potencial sistema" */}
+        <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
+          <input
+            type="checkbox"
+            checked={withReviews}
+            onChange={(e) => setWithReviews(e.target.checked)}
+          />
+          Traer reseñas (detecta quejas de turnos/atención para el score de sistemas — la búsqueda cuesta más en la API)
+        </label>
+
         {/* Suggested Searches */}
         <div className="mt-4">
           <div className="mb-2 text-xs font-medium text-slate-500">Busquedas sugeridas:</div>
@@ -239,6 +265,27 @@ export default function GoogleMapsSearch({ onBusinessesLoaded, existingBusinesse
                 }}
                 disabled={searching}
                 className="rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
+              >
+                {s.icon} {s.query}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="mb-2 text-xs font-medium text-slate-500">Clientes de sistemas (tipo Cristal Smile) — activa las reseñas:</div>
+          <div className="flex flex-wrap gap-2">
+            {SYSTEMS_SEARCHES.map((s) => (
+              <button
+                key={s.query}
+                onClick={() => {
+                  setQuery(s.query);
+                  setCategory(s.category);
+                  setWithReviews(true);
+                  searchGoogleMaps(s.query, undefined, true);
+                }}
+                disabled={searching}
+                className="rounded-full border border-teal-200 px-3 py-1.5 text-xs text-teal-800 hover:border-teal-400 hover:bg-teal-50 disabled:opacity-50"
               >
                 {s.icon} {s.query}
               </button>

@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { AnalysisResult, Business, PipelineStatus } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta, getDiscardReasonLabel, promptDiscardReason } from '@/lib/pipeline';
-import { calculateLeadScore, leadScoreLabel } from '@/lib/leadScore';
-import { AlertCircle, CheckCircle, TrendingUp, X, StickyNote, Flame, Camera, Loader } from 'lucide-react';
+import { calculateLeadScore, calculateSystemsLeadScore, leadScoreLabel } from '@/lib/leadScore';
+import { AlertCircle, CheckCircle, TrendingUp, X, StickyNote, Flame, Camera, Loader, Cog } from 'lucide-react';
 
 interface Props {
   result: AnalysisResult;
@@ -28,6 +28,8 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
   const { business, analysis, error } = result;
   const leadScore = calculateLeadScore(business, analysis);
   const leadMeta = leadScoreLabel(leadScore);
+  const systemsLead = calculateSystemsLeadScore(business, analysis);
+  const systemsMeta = leadScoreLabel(systemsLead.score);
   const [capturing, setCapturing] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
 
@@ -96,6 +98,24 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
     </span>
   );
 
+  const systemsBadge = (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${systemsMeta.color}`}
+      title="Potencial sistema: negocio asentado + varios profesionales + quejas operativas + sin turnos online / con sistema viejo"
+    >
+      <Cog className="h-3 w-3" />
+      Sistema {systemsLead.score}
+    </span>
+  );
+
+  const systemsSignals = systemsLead.signals.length > 0 && (
+    <ul className="mt-2 space-y-0.5 text-xs text-teal-800">
+      {systemsLead.signals.map((signal, i) => (
+        <li key={i}>⚙ {signal}</li>
+      ))}
+    </ul>
+  );
+
   const editNotes = () => {
     if (!onUpdateBusiness) return;
     const note = prompt(`Nota para ${business.name}:`, business.notes || '');
@@ -162,8 +182,10 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
                 <span className="rounded-full bg-red-200 px-2 py-0.5 text-xs font-medium text-red-800">Sin web</span>
               )}
               {leadScoreBadge}
+              {systemsBadge}
             </div>
             <p className={`text-sm ${subColor}`}>{error}</p>
+            {systemsSignals}
             {business.socialMedia && (
               <a href={business.socialMedia} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-600 hover:underline">
                 {business.socialMedia}
@@ -199,6 +221,7 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold text-slate-900">{business.name}</h3>
             {leadScoreBadge}
+            {systemsBadge}
           </div>
           {business.website && (
             <a
@@ -244,6 +267,7 @@ export default function AnalysisCard({ result, onRemove, onUpdateBusiness }: Pro
       </div>
 
       {statusControls}
+      {systemsSignals}
       {screenshotBlock}
 
       {/* Scores Grid */}

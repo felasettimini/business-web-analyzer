@@ -37,6 +37,8 @@ interface PlaceNew {
   googleMapsUri?: string;
   rating?: number;
   userRatingCount?: number;
+  primaryType?: string;
+  reviews?: { rating?: number; text?: { text: string }; originalText?: { text: string } }[];
 }
 
 // Busca el primer componente de direccion que matchee alguno de los tipos pedidos
@@ -55,7 +57,7 @@ function extractAddressComponent(
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, pageToken } = await request.json();
+    const { query, pageToken, withReviews } = await request.json();
 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
@@ -78,6 +80,8 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
+        // Ojo: pedir 'places.reviews' sube la request al SKU "Enterprise + Atmosphere"
+        // (mas caro) — por eso es opcional, solo para buscar clientes de sistemas.
         'X-Goog-FieldMask': [
           'places.id',
           'places.displayName',
@@ -89,6 +93,8 @@ export async function POST(request: NextRequest) {
           'places.googleMapsUri',
           'places.rating',
           'places.userRatingCount',
+          'places.primaryType',
+          ...(withReviews ? ['places.reviews'] : []),
           'nextPageToken', // sin esto, la API (New) NO devuelve el token de paginacion
         ].join(','),
       },
@@ -139,6 +145,10 @@ export async function POST(request: NextRequest) {
         hasWebsite: !!rawUrl && !isSocial,
         socialMedia: isSocial ? rawUrl : undefined,   // Store social URL separately
         onlySocial: isSocial,
+        primaryType: place.primaryType || undefined,
+        reviewSamples: place.reviews
+          ?.map((r) => ({ rating: r.rating, text: r.originalText?.text || r.text?.text || '' }))
+          .filter((r) => r.text),
       };
     });
 

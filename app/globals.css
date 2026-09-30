@@ -129,6 +129,12 @@ body {
 .dark .text-purple-800 { color: #e9d5ff; }
 .dark .text-purple-900 { color: #f3e8ff; }
 
+/* teal: score y busquedas de "Potencial sistema" */
+.dark .border-teal-200 { border-color: rgb(19 78 74 / 0.8); }
+.dark .hover\:border-teal-400:hover { border-color: #2dd4bf; }
+.dark .hover\:bg-teal-50:hover { background-color: rgb(19 78 74 / 0.35); }
+.dark .text-teal-800 { color: #99f6e4; }
+
 /* Indigo (categoria) */
 .dark .bg-indigo-100 { background-color: rgb(49 46 129 / 0.4); }
 .dark .text-indigo-700 { color: #a5b4fc; }

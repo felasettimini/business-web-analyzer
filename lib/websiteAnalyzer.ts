@@ -30,6 +30,17 @@ function getBrowser(): Promise<Browser> {
   return browserPromise;
 }
 
+// Plataformas de turnos online comunes en Argentina (se buscan en el HTML: scripts, iframes, links)
+const BOOKING_PLATFORMS = [
+  'doctoralia', 'agendapro', 'turnito', 'miturno', 'reservasalud', 'calendly',
+  'booksy', 'setmore', 'simplybook', 'turnonline', 'dentalink', 'medicloud', 'turnera',
+];
+
+const LOGIN_PATTERNS = [
+  /iniciar sesi[oó]n/, /\bingresar\b/, /\blogin\b/, /mi cuenta/, /wp-login/,
+  /(área|area|acceso|portal)\s+(de\s+)?(profesionales|pacientes|miembros|socios|clientes|odont[oó]logos)/,
+];
+
 /**
  * Chequea si el sitio bloquea activamente la indexacion en Google: noindex (meta o
  * header) o robots.txt con Disallow: / para todos los bots. Es una señal gratuita y
@@ -223,6 +234,22 @@ export async function analyzeWebsite(url: string, businessName: string): Promise
 
     scores.contactibility = Math.min(contactScore, 100);
 
+    // ===== SEÑALES DE SISTEMAS (para el score de "Potencial sistema") =====
+    // Turnos online: widget/links de plataformas conocidas o CTA explicito de reserva online.
+    const lowerHtml = html.toLowerCase();
+    const hasOnlineBooking =
+      BOOKING_PLATFORMS.some((p) => lowerHtml.includes(p)) ||
+      /turnos?\s+online|reserv(a|á) tu turno|reservar turno|sac(a|á) tu turno|agend(a|á) tu turno/i.test($('body').text());
+
+    // Area de usuarios: un login propio suele ser un sistema hecho a medida (como el de
+    // Cristal Smile) — muchas veces viejo o sin uso, y alguien ya pago por tenerlo.
+    const hasLoginArea =
+      $('input[type="password"]').length > 0 ||
+      $('a').toArray().some((a) => {
+        const text = `${$(a).text()} ${$(a).attr('href') || ''}`.toLowerCase();
+        return LOGIN_PATTERNS.some((p) => p.test(text));
+      });
+
     // ===== INDEXING CHECK =====
     const indexingBlocked = await checkIndexingBlocked(origin, html, responseHeaders as Record<string, string>);
     if (indexingBlocked) {
@@ -262,6 +289,8 @@ export async function analyzeWebsite(url: string, businessName: string): Promise
       designAge,
       opportunity,
       indexingBlocked,
+      hasOnlineBooking,
+      hasLoginArea,
     };
   } catch (error) {
     if (error instanceof Error && error.message.includes('Failed to launch')) {

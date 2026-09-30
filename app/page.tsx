@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Upload, Search, BarChart3, Download, Loader, MapPin, MessageCircle, X, StickyNote, Camera, Pencil, Sun, Moon } from 'lucide-react';
 import { AnalysisResult, Business, PipelineStatus, WebsiteAnalysis } from '@/lib/types';
 import { PIPELINE_STATUSES, getStatusMeta, promptDiscardReason, shouldAutoDiscard } from '@/lib/pipeline';
-import { calculateLeadScore, webPresencePriority } from '@/lib/leadScore';
+import { calculateLeadScore, calculateSystemsLeadScore, webPresencePriority } from '@/lib/leadScore';
 import { isSocialMediaUrl } from '@/lib/socialMedia';
 import { fetchAppState, saveAppState } from '@/lib/appState';
 import AnalysisCard from '@/components/AnalysisCard';
@@ -79,6 +79,8 @@ export default function Home() {
   const [captureProgress, setCaptureProgress] = useState({ current: 0, total: 0 });
   const [businessCategoryFilter, setBusinessCategoryFilter] = useState<string>('all');
   const [businessSearchQuery, setBusinessSearchQuery] = useState('');
+  // 'web' = clientes de paginas web; 'sistemas' = clientes tipo Cristal Smile (turnos, pacientes, portal)
+  const [resultsSort, setResultsSort] = useState<'web' | 'sistemas'>('web');
 
   // Carga inicial: Supabase es la fuente de verdad (persiste y es accesible desde
   // cualquier dispositivo). Si Supabase todavia esta vacio pero este navegador tiene
@@ -235,7 +237,7 @@ export default function Home() {
 
   const downloadResults = () => {
     const csv = [
-      ['Business', 'Phone', 'Website', 'Has Website', 'Overall Score', 'Opportunity', 'Mobile', 'Speed', 'Design', 'SEO', 'Contact', 'Issues'].join(','),
+      ['Business', 'Phone', 'Website', 'Has Website', 'Overall Score', 'Opportunity', 'Mobile', 'Speed', 'Design', 'SEO', 'Contact', 'Issues', 'Potencial sistema', 'Señales sistema'].join(','),
       ...results.map(r => [
         `"${r.business.name}"`,
         `"${r.business.phone || ''}"`,
@@ -249,6 +251,8 @@ export default function Home() {
         r.analysis?.scores.seo || 'N/A',
         r.analysis?.scores.contactibility || 'N/A',
         `"${r.analysis?.issues?.join('; ') || r.error || ''}"`,
+        calculateSystemsLeadScore(r.business, r.analysis).score,
+        `"${calculateSystemsLeadScore(r.business, r.analysis).signals.join('; ')}"`,
       ].join(',')),
     ].join('\n');
 
@@ -853,9 +857,25 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Results — primero sin web, despues solo redes, despues con web; dentro de cada grupo por lead score */}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-600">Ordenar por:</span>
+                  <select
+                    value={resultsSort}
+                    onChange={(e) => setResultsSort(e.target.value as 'web' | 'sistemas')}
+                    className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                  >
+                    <option value="web">Oportunidad de web</option>
+                    <option value="sistemas">Potencial sistema (tipo Cristal Smile)</option>
+                  </select>
+                </div>
+
+                {/* Results — modo web: primero sin web, despues solo redes, despues con web; dentro de cada grupo por lead score.
+                    Modo sistemas: por score de sistemas, sin importar la web. */}
                 {[...results]
                   .sort((a, b) => {
+                    if (resultsSort === 'sistemas') {
+                      return calculateSystemsLeadScore(b.business, b.analysis).score - calculateSystemsLeadScore(a.business, a.analysis).score;
+                    }
                     const prioA = webPresencePriority(a.business);
                     const prioB = webPresencePriority(b.business);
                     if (prioA !== prioB) return prioA - prioB;

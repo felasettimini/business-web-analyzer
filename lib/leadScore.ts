@@ -59,3 +59,80 @@ export function webPresencePriority(business: Business): number {
   if (business.onlySocial) return 1;
   return 2;
 }
+
+// ===================== POTENCIAL SISTEMA =====================
+// Busca negocios "tipo Cristal Smile": asentados, con varios profesionales y
+// procesos que hoy corren a mano (WhatsApp, Excel, telefono). No mide la web,
+// mide cuanto les serviria un sistema a medida (turnos, pacientes, cobros, portal).
+
+// Nombre que sugiere varios profesionales (y por lo tanto recepcion, agenda compartida, etc.)
+// ("centro" solo con complemento: "Peluqueria Rosario Centro" es un barrio, no un centro medico)
+const MULTI_PRO_NAME = /\b(cl[ií]nica|centro\s+(de|del|m[eé]dico|dental|odontol[oó]gico|integral|est[eé]tic)|instituto|consultorios|policonsultorio|grupo|red|integral|especialidades|asociados|equipo)\b/i;
+// Demasiado grandes: ya tienen sistema y un area de sistemas
+const TOO_BIG_NAME = /\b(hospital|sanatorio|swiss medical|osde|galeno|medife|iapos|pami|universidad|municipal|provincial|p[uú]blico)\b/i;
+
+const PAIN_TOPICS: { label: string; pattern: RegExp }[] = [
+  { label: 'turnos', pattern: /turno|agenda|reprogram|cancelaron|me cambiaron/i },
+  { label: 'comunicación', pattern: /no (atienden|contestan|responden)|imposible comunicar|tel[eé]fono|whats ?app|nunca (atienden|contestan|responden)|no hay forma de comunicar/i },
+  { label: 'esperas', pattern: /demora|esper[eéa]|puntual|hora de retraso|horas? de espera/i },
+  { label: 'administración y cobros', pattern: /factur|cobr|presupuesto|desorganiz|administra|obra social|papeles|recepci[oó]n/i },
+];
+
+export interface SystemsLeadResult {
+  score: number;
+  signals: string[]; // señales en lenguaje humano, para usar en el primer mensaje
+}
+
+export function calculateSystemsLeadScore(business: Business, analysis?: WebsiteAnalysis): SystemsLeadResult {
+  const signals: string[] = [];
+
+  if (TOO_BIG_NAME.test(business.name)) {
+    return { score: 0, signals: ['Institución grande — ya tiene sistemas propios'] };
+  }
+
+  // 1. Asentado (0-35): mismas bases que el lead score de web
+  const reviews = business.reviews || 0;
+  const reviewsScore = Math.min(1, Math.log10(reviews + 1) / Math.log10(301));
+  const ratingFactor = business.rating ? Math.min(1, business.rating / 4.5) : 0.7;
+  const established = 35 * reviewsScore * ratingFactor;
+  if (reviews >= 100) signals.push(`Negocio asentado (${reviews} reseñas)`);
+
+  // 2. Tamaño (0-25): varios profesionales = agenda compartida, recepcion, pacientes que se pierden
+  let size = 0;
+  if (MULTI_PRO_NAME.test(business.name)) {
+    size = 25;
+    signals.push('Por el nombre, trabaja con varios profesionales');
+  } else if (reviews >= 150) {
+    size = 15; // mucho volumen de pacientes aunque el nombre sea de una persona
+  }
+
+  // 3. Quejas operativas en reseñas (0-30)
+  const complaints = new Set<string>();
+  for (const review of business.reviewSamples || []) {
+    const isNegative = review.rating === undefined || review.rating <= 3;
+    for (const topic of PAIN_TOPICS) {
+      if (topic.pattern.test(review.text) && isNegative) complaints.add(topic.label);
+    }
+  }
+  const pain = Math.min(30, complaints.size * 15);
+  if (complaints.size > 0) signals.push(`Reseñas con quejas de ${Array.from(complaints).join(', ')}`);
+
+  // 4. Web / herramientas (0-20)
+  let tools = 0;
+  if (analysis) {
+    if (analysis.hasLoginArea) {
+      tools += 12;
+      signals.push('Tiene un área de usuarios en la web — posible sistema viejo a reemplazar');
+    }
+    if (analysis.hasOnlineBooking === false) {
+      tools += 8;
+      signals.push('Sin turnos online: todo pasa por teléfono/WhatsApp');
+    }
+  } else if (!business.hasWebsite) {
+    tools += 8;
+    signals.push('Sin web propia: turnos y consultas seguro van por teléfono/WhatsApp');
+  }
+
+  const score = Math.round(Math.max(0, Math.min(100, established + size + pain + tools)));
+  return { score, signals };
+}
