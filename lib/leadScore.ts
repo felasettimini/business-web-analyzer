@@ -71,23 +71,31 @@ const MULTI_PRO_NAME = /\b(cl[ií]nica|centro\s+(de|del|m[eé]dico|dental|odonto
 // Demasiado grandes: ya tienen sistema y un area de sistemas
 const TOO_BIG_NAME = /\b(hospital|sanatorio|swiss medical|osde|galeno|medife|iapos|pami|universidad|municipal|provincial|p[uú]blico)\b/i;
 
-const PAIN_TOPICS: { label: string; pattern: RegExp }[] = [
-  { label: 'turnos', pattern: /turno|agenda|reprogram|cancelaron|me cambiaron/i },
-  { label: 'comunicación', pattern: /no (atienden|contestan|responden)|imposible comunicar|tel[eé]fono|whats ?app|nunca (atienden|contestan|responden)|no hay forma de comunicar/i },
-  { label: 'esperas', pattern: /demora|esper[eéa]|puntual|hora de retraso|horas? de espera/i },
-  { label: 'administración y cobros', pattern: /factur|cobr|presupuesto|desorganiz|administra|obra social|papeles|recepci[oó]n/i },
+// messagePhrase: como se nombra el problema en el primer mensaje ("cuesta ...")
+const PAIN_TOPICS: { label: string; messagePhrase: string; pattern: RegExp }[] = [
+  { label: 'turnos', messagePhrase: 'conseguir turno', pattern: /turno|agenda|reprogram|cancelaron|me cambiaron/i },
+  { label: 'comunicación', messagePhrase: 'comunicarse', pattern: /no (atienden|contestan|responden)|imposible comunicar|tel[eé]fono|whats ?app|nunca (atienden|contestan|responden)|no hay forma de comunicar/i },
+  { label: 'esperas', messagePhrase: 'evitar las demoras', pattern: /demora|esper[eéa]|puntual|hora de retraso|horas? de espera/i },
+  { label: 'administración y cobros', messagePhrase: 'resolver la parte administrativa', pattern: /factur|cobr|presupuesto|desorganiz|administra|obra social|papeles|recepci[oó]n/i },
 ];
+
+function joinSpanish(items: string[]): string {
+  return items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} o ${items[items.length - 1]}`;
+}
 
 export interface SystemsLeadResult {
   score: number;
   signals: string[]; // señales en lenguaje humano, para usar en el primer mensaje
+  // Frase lista para la plantilla de WhatsApp ("Estuve viendo X y {messageHook}."), armada
+  // con la señal mas fuerte. Tono de observacion, no de critica: es el primer contacto.
+  messageHook: string;
 }
 
 export function calculateSystemsLeadScore(business: Business, analysis?: WebsiteAnalysis): SystemsLeadResult {
   const signals: string[] = [];
 
   if (TOO_BIG_NAME.test(business.name)) {
-    return { score: 0, signals: ['Institución grande — ya tiene sistemas propios'] };
+    return { score: 0, signals: ['Institución grande — ya tiene sistemas propios'], messageHook: '' };
   }
 
   // 1. Asentado (0-35): mismas bases que el lead score de web
@@ -107,15 +115,16 @@ export function calculateSystemsLeadScore(business: Business, analysis?: Website
   }
 
   // 3. Quejas operativas en reseñas (0-30)
-  const complaints = new Set<string>();
+  const complaints = new Set<(typeof PAIN_TOPICS)[number]>();
   for (const review of business.reviewSamples || []) {
     const isNegative = review.rating === undefined || review.rating <= 3;
     for (const topic of PAIN_TOPICS) {
-      if (topic.pattern.test(review.text) && isNegative) complaints.add(topic.label);
+      if (topic.pattern.test(review.text) && isNegative) complaints.add(topic);
     }
   }
+  const complaintList = Array.from(complaints);
   const pain = Math.min(30, complaints.size * 15);
-  if (complaints.size > 0) signals.push(`Reseñas con quejas de ${Array.from(complaints).join(', ')}`);
+  if (complaints.size > 0) signals.push(`Reseñas con quejas de ${complaintList.map((t) => t.label).join(', ')}`);
 
   // 4. Web / herramientas (0-20)
   let tools = 0;
@@ -134,5 +143,17 @@ export function calculateSystemsLeadScore(business: Business, analysis?: Website
   }
 
   const score = Math.round(Math.max(0, Math.min(100, established + size + pain + tools)));
-  return { score, signals };
+
+  let messageHook: string;
+  if (complaintList.length > 0) {
+    messageHook = `en algunas reseñas comentan que cuesta ${joinSpanish(complaintList.map((t) => t.messagePhrase))}, algo que suele pasar cuando todo entra por teléfono y WhatsApp`;
+  } else if (analysis?.hasLoginArea) {
+    messageHook = 'noté que en la web tienen un área de acceso para usuarios; muchas veces esos sistemas quedan viejos o casi no se usan';
+  } else if (analysis?.hasOnlineBooking === false || !business.hasWebsite) {
+    messageHook = 'noté que los turnos y las consultas se manejan por teléfono y WhatsApp';
+  } else {
+    messageHook = 'noté que trabajan con varios profesionales, y ahí la agenda y el seguimiento de cada caso suelen complicarse';
+  }
+
+  return { score, signals, messageHook };
 }

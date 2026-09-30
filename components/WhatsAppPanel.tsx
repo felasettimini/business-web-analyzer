@@ -12,7 +12,7 @@ import {
   suggestNextFollowUp,
   isFollowUpDue,
 } from '@/lib/pipeline';
-import { calculateLeadScore, leadScoreLabel } from '@/lib/leadScore';
+import { calculateLeadScore, calculateSystemsLeadScore, leadScoreLabel } from '@/lib/leadScore';
 import { getBusinessLocation } from '@/lib/address';
 import { fetchAppState, saveAppState } from '@/lib/appState';
 
@@ -303,6 +303,7 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
       score: String(result.analysis?.overall || 'N/A'),
       rating: result.business.rating ? String(result.business.rating) : 'muy buen',
       reviews: result.business.reviews ? String(result.business.reviews) : 'varias',
+      senal_sistema: calculateSystemsLeadScore(result.business, result.analysis).messageHook,
     });
   };
 
@@ -471,6 +472,8 @@ export default function WhatsAppPanel({ results, onRemove, onUpdateBusiness, onA
     ['followup-final', 'no te molesto mas por este medio'],
     ['preview-A', 'arme una vista previa rapida de como podria quedar tu web'],
     ['preview-B', 'no tiene web propia. hoy la mayoria de tus clientes potenciales googlean'],
+    ['sistemas-intro', 'en un sistema para ordenar casos, pacientes y pagos'],
+    ['sistemas-followup', 'como quedaria el dia a dia con un sistema asi'],
   ];
 
   const detectTemplateId = (text: string): string | null => {

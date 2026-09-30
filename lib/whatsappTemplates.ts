@@ -86,6 +86,30 @@ Vi la pagina de {nombre_negocio} y note que {problema_principal}. Eso le resta c
 
 Te armo gratis un ejemplo de como podria verse mejorada, sin compromiso de nada. Te interesa verlo?`,
   },
+  // Clientes de sistemas (tipo Cristal Smile): no se vende una web sino resolver un
+  // problema operativo. El primer mensaje pide una charla corta para entender como
+  // trabajan hoy — no ofrece una solucion todavia. {senal_sistema} sale de
+  // calculateSystemsLeadScore (lib/leadScore.ts).
+  {
+    id: 'sistemas-intro',
+    name: '⚙️ SISTEMAS - Primer contacto',
+    message: `Hola! Soy Felipe, desarrollador de Rosario.
+
+Estoy trabajando con una clínica odontológica de acá en un sistema para ordenar casos, pacientes y pagos que hoy llevan por WhatsApp y Excel.
+
+Estuve viendo {nombre_negocio} y {senal_sistema}.
+
+Les puedo hacer 3 o 4 preguntas sobre cómo manejan eso hoy? Son 15 minutos, sin compromiso, y si veo algo que se pueda simplificar se los cuento.`,
+  },
+  {
+    id: 'sistemas-followup',
+    name: '⚙️ SISTEMAS - Seguimiento con demo',
+    message: `Hola! Retomo lo que les comenté hace unos días sobre cómo organizan turnos y pacientes en {nombre_negocio}.
+
+Si les sirve, paso 15 minutos por ahí y les muestro en la compu cómo quedaría el día a día con un sistema así, con sus propios casos de ejemplo. Sin compromiso.
+
+Qué día les queda cómodo?`,
+  },
 ];
 
 /**
